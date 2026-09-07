@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "generator": {
+    "label_size": [1024, 1024],
+    "surface_size": [1024, 1024],
+    "finish_default": "MATTE FINISH",
+    "field_text": "FIELD USE / GENERAL PURPOSE",
+    "font": {
+      "family_candidates": [
+        "DejaVu Sans Condensed Bold",
+        "DejaVu Sans Bold",
+        "Liberation Sans Bold",
+        "Arial Bold"
+      ]
+    }
+  },
+  "dayz": {
+    "emit_config_fragment": true,
+    "base_class": "PaintZ_SprayCanBase",
+    "class_prefix": "PaintZ_SprayCan_",
+    "texture_root": "PaintZ\\data\\cans",
+    "texture_assignment": "hiddenSelectionsTextures",
+    "hidden_selection_repeat": 1,
+    "types_nominal": 0,
+    "types_lifetime": 14400
+  },
+  "paints": [
+    {
+      "id": "ODG",
+      "name": "Olive Drab",
+      "type": "solid",
+      "color": "#54513B",
+      "appearance_profile": "used"
+    },
+    {
+      "id": "RGR",
+      "name": "Ranger Green",
+      "type": "solid",
+      "color": "#5C624E",
+      "appearance_profile": "used"
+    },
+    {
+      "id": "NTG",
+      "name": "NATO Green",
+      "type": "solid",
+      "color": "#4E573B",
+      "appearance_profile": "used"
+    },
+    {
+      "id": "CBR",
+      "name": "Coyote Brown",
+      "type": "solid",
+      "color": "#7B6348",
+      "appearance_profile": "used"
+    },
+    {
+      "id": "FDE",
+      "name": "Flat Dark Earth",
+      "type": "solid",
+      "color": "#86785B",
+      "appearance_profile": "used"
+    },
+    {
+      "id": "DTN",
+      "name": "Desert Tan",
+      "type": "solid",
+      "color": "#9F8B69",
+      "appearance_profile": "used"
+    },
+    {
+      "id": "KHK",
+      "name": "Khaki",
+      "type": "solid",
+      "color": "#988B65",
+      "appearance_profile": "used"
+    },
+    {
+      "id": "FGY",
+      "name": "Field Grey",
+      "type": "solid",
+      "color": "#666C61",
+      "appearance_profile": "used"
+    },
+    {
+      "id": "UGY",
+      "name": "Urban Grey",
+      "type": "solid",
+      "color": "#6F7372",
+      "appearance_profile": "clean"
+    },
+    {
+      "id": "BLK",
+      "name": "Black",
+      "type": "solid",
+      "color": "#262827",
+      "appearance_profile": "clean"
+    },
+    {
+      "id": "WHT",
+      "name": "White",
+      "type": "solid",
+      "color": "#DADCD6",
+      "appearance_profile": "weathered"
+    },
+
+    {
+      "id": "ERDL",
+      "name": "ERDL",
+      "type": "camo",
+      "pattern": "assets/pattern_sources/erdl.png"
+    },
+    {
+      "id": "WDL",
+      "name": "Woodland",
+      "type": "camo",
+      "pattern": "assets/pattern_sources/woodland.png"
+    },
+    {
+      "id": "DWD",
+      "name": "Digital Woodland",
+      "type": "camo",
+      "pattern": "assets/pattern_sources/vanilla-marpat-woodland.png"
+    },
+    {
+      "id": "FLK",
+      "name": "Flecktarn",
+      "type": "camo",
+      "pattern": "assets/pattern_sources/ftn.png"
+    },
+    {
+      "id": "MCT",
+      "name": "Multicam Tropic",
+      "type": "camo",
+      "pattern": "assets/pattern_sources/mctp.png"
+    },
+    {
+      "id": "TGR",
+      "name": "Tiger Stripe",
+      "type": "camo",
+      "pattern": "assets/pattern_sources/tiger-stripe.png"
+    },
+    {
+      "id": "UCP",
+      "name": "Universal Camouflage Pattern",
+      "type": "camo",
+      "pattern": "assets/pattern_sources/ucp.png"
+    }
+  ]
+}

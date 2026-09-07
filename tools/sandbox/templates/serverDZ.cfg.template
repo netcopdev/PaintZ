@@ -1,0 +1,46 @@
+hostname = "PaintZ Safe Sandbox";
+description = "Local, no-CE runtime-painting test environment";
+password = "";
+passwordAdmin = "";
+maxPlayers = 4;
+
+verifySignatures = 0;
+BattlEye = 0;
+allowFilePatching = 1;
+forceSameBuild = 1;
+disableVoN = 1;
+disable3rdPerson = 0;
+disableCrosshair = 0;
+disablePersonalLight = 0;
+lightingConfig = 0;
+
+serverTime = "2026/06/15/12/00";
+serverTimeAcceleration = 0;
+serverNightTimeAcceleration = 1;
+serverTimePersistent = 0;
+
+instanceId = 9917;
+storageAutoFix = 1;
+respawnTime = 0;
+loginQueueConcurrentPlayers = 4;
+loginQueueMaxPlayers = 4;
+
+steamPort = 8766;
+steamQueryPort = 27016;
+
+enableWhitelist = 0;
+motd[] =
+{
+    "PaintZ safe sandbox",
+    "No Central Economy, infected, animals, dynamic events, or persistence.",
+    "Spray can is in hand; fixtures are directly ahead."
+};
+motdInterval = 3;
+
+class Missions
+{
+    class DayZ
+    {
+        template = "PaintZ_Sandbox.ChernarusPlus";
+    };
+};

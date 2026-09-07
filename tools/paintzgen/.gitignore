@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.venv/
+# Generated files are intentionally committed by default for reproducible DayZ builds.
+# Uncomment if your repo policy prefers regeneration in CI:
+# generated/

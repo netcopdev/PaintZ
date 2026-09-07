@@ -1,0 +1,66 @@
+# DayZ packages and build output
+@TagZ/
+dist/
+build/
+out/
+*.pbo
+*.bisign
+*.bikey
+*.privatekey
+
+# Generated PaintZ content
+data/
+tools/paintzgen/generated/
+tools/paintzgen/SHA256SUMS.txt
+__pycache__/
+*.py[cod]
+
+# Binary artwork and fonts are distributed separately from this public source repository.
+assets/
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.bmp
+*.tga
+*.paa
+*.edds
+*.svg
+*.ttf
+*.otf
+
+# Local DayZ server data and diagnostic output
+*.log
+*.rpt
+*.RPT
+*.ADM
+*.DayZProfile
+serverDZ.cfg
+profile/
+profiles/
+mpmissions/
+
+# Credentials and machine-specific settings
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+*.p12
+*.credentials
+credentials.json
+secrets.json
+
+# Tool caches and editor/OS files
+.tmp/
+.vscode/
+.vs/
+.idea/
+Temp/
+temp/
+*.tmp
+.DS_Store
+Thumbs.db
+*.user
+*.suo

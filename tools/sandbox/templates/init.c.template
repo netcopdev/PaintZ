@@ -1,0 +1,287 @@
+void main()
+{
+    // Intentionally do not call CreateHive(). The Central Economy therefore
+    // cannot create infected, animals, events, ambient loot, or persistence.
+    GetGame().GetWorld().SetDate(2026, 6, 15, 12, 0);
+
+    Weather weather = GetGame().GetWeather();
+    weather.MissionWeather(true);
+    weather.GetOvercast().SetLimits(0.0, 0.0);
+    weather.GetRain().SetLimits(0.0, 0.0);
+    weather.GetFog().SetLimits(0.0, 0.0);
+    weather.GetOvercast().Set(0.0, 0, 0);
+    weather.GetRain().Set(0.0, 0, 0);
+    weather.GetFog().Set(0.0, 0, 0);
+}
+
+class CustomMission: MissionServer
+{
+    protected int m_PaintZSpawnIndex;
+    protected int m_PaintZFixtureIndex;
+
+    protected vector GetSandboxAnchor()
+    {
+        // NWAF runway concrete, verified with SurfaceGetType in DayZ 1.29.
+        return "4475 0 10200";
+    }
+
+    override void OnInit()
+    {
+        super.OnInit();
+        GetGame().GetCallQueue(CALL_CATEGORY_GAMEPLAY).CallLater(KeepPlayersSafe, 5000, true);
+        PrepareSandbox();
+    }
+
+    override PlayerBase CreateCharacter(PlayerIdentity identity, vector pos, ParamsReadContext ctx, string characterName)
+    {
+        vector sandboxSpawn = GetSandboxAnchor();
+        sandboxSpawn[0] = sandboxSpawn[0] + (m_PaintZSpawnIndex * 1.2);
+        sandboxSpawn[2] = sandboxSpawn[2] + (m_PaintZSpawnIndex * 0.9);
+        sandboxSpawn[1] = GetGame().SurfaceY(sandboxSpawn[0], sandboxSpawn[2]) + 0.2;
+        m_PaintZSpawnIndex++;
+
+        Entity playerEntity = GetGame().CreatePlayer(identity, characterName, sandboxSpawn, 0, "NONE");
+        Class.CastTo(m_player, playerEntity);
+        if (m_player)
+            m_player.SetOrientation("-36.87 0 0");
+        GetGame().SelectPlayer(identity, m_player);
+        return m_player;
+    }
+
+    override void StartingEquipSetup(PlayerBase player, bool clothesChosen)
+    {
+        EntityAI backpack = player.GetInventory().CreateAttachment("AliceBag_Green");
+        if (!backpack)
+            Print("[PaintZ][Sandbox] FAILED to equip test backpack");
+
+        // A full twelve-can kit exceeds the backpack's usable cargo space.
+        // Keep extra storage on the player for the remaining test cans.
+        if (!player.FindAttachmentBySlotName("Vest"))
+            player.GetInventory().CreateAttachment("HuntingVest");
+        if (!player.FindAttachmentBySlotName("Legs"))
+            player.GetInventory().CreateAttachment("CargoPants_Green");
+
+        array<string> catalogCanTypes;
+        PaintZ_PaintCatalog.GetCanTypes(catalogCanTypes);
+        string firstPaintCan;
+        if (catalogCanTypes.Count() > 0)
+            firstPaintCan = catalogCanTypes[0];
+        array<string> canTypes = new array<string>;
+        if (firstPaintCan != "")
+            canTypes.Insert(firstPaintCan);
+        canTypes.Insert("PaintZ_PaintStripperCan");
+        foreach (string canType : canTypes)
+        {
+            for (int copy = 0; copy < 2; copy++)
+            {
+                EntityAI can;
+                if (canType == firstPaintCan && copy == 0)
+                    can = player.GetHumanInventory().CreateInHands(canType);
+                else if (backpack)
+                    can = backpack.GetInventory().CreateInInventory(canType);
+
+                if (!can)
+                    can = player.GetInventory().CreateInInventory(canType);
+                if (!can)
+                    Print("[PaintZ][Sandbox] FAILED to equip " + canType + " copy=" + copy);
+                FillItem(can);
+            }
+        }
+
+        KeepPlayerSafe(player);
+        player.MessageStatus("PaintZ runway sandbox: primary paint and stripper equipped; every generated paint is staged nearby.");
+    }
+
+    protected void PrepareSandbox()
+    {
+        vector fixtureAnchor = GetSandboxAnchor();
+        fixtureAnchor[1] = GetGame().SurfaceY(fixtureAnchor[0], fixtureAnchor[2]);
+
+        array<string> paintCanTypes;
+        PaintZ_PaintCatalog.GetCanTypes(paintCanTypes);
+        for (int paintIndex = 0; paintIndex < paintCanTypes.Count(); paintIndex++)
+            SpawnFixture(fixtureAnchor, paintCanTypes[paintIndex], -0.75 + (paintIndex * 0.75), 0.75, "generated paint test can");
+        SpawnFixture(fixtureAnchor, "PaintZ_PaintStripperCan", -0.75 + (paintCanTypes.Count() * 0.75), 0.75, "Paint stripper test can");
+
+        m_PaintZFixtureIndex = 0;
+        int weaponCount = SpawnVanillaConfigFixtures(fixtureAnchor, "CfgWeapons", true);
+        int magazineCount = SpawnVanillaConfigFixtures(fixtureAnchor, "CfgMagazines", false);
+        SpawnOptionalThirdPartyFixture(fixtureAnchor);
+
+        Print("[PaintZ][Sandbox] Vanilla weapon fixtures=" + weaponCount + " magazine fixtures=" + magazineCount);
+        Print("[PaintZ][Sandbox] READY - dynamic vanilla fixtures spawned; no hive/CE; clear noon");
+    }
+
+    protected int SpawnVanillaConfigFixtures(vector fixtureAnchor, string configRoot, bool requireWeapon)
+    {
+        int spawnedCount;
+        int childCount = GetGame().ConfigGetChildrenCount(configRoot);
+
+        for (int i = 0; i < childCount; i++)
+        {
+            string fixtureType;
+            GetGame().ConfigGetChildName(configRoot, i, fixtureType);
+
+            string fixturePath = configRoot + " " + fixtureType;
+            if (GetGame().ConfigGetInt(fixturePath + " scope") != 2)
+                continue;
+
+            vector position = GetFixturePosition(fixtureAnchor, m_PaintZFixtureIndex);
+            EntityAI fixture = CreateGroundFixture(fixtureType, position);
+            if (!fixture)
+                continue;
+
+            bool accepted;
+            if (requireWeapon)
+            {
+                accepted = Weapon_Base.Cast(fixture) != null;
+            }
+            else
+            {
+                Magazine magazine = Magazine.Cast(fixture);
+                accepted = magazine != null && !fixture.IsAmmoPile();
+            }
+
+            if (!accepted)
+            {
+                GetGame().ObjectDelete(fixture);
+                continue;
+            }
+
+            FillItem(fixture);
+            m_PaintZFixtureIndex++;
+            spawnedCount++;
+            Print("[PaintZ][Sandbox] Spawned vanilla fixture " + fixtureType);
+        }
+
+        return spawnedCount;
+    }
+
+    protected vector GetFixturePosition(vector fixtureAnchor, int fixtureIndex)
+    {
+        const int columns = 12;
+        const float columnSpacing = 1.4;
+        const float rowSpacing = 1.25;
+
+        int column = fixtureIndex % columns;
+        int row = fixtureIndex / columns;
+
+        vector position = fixtureAnchor;
+        float rightOffset = (column - 5.5) * columnSpacing;
+        float forwardOffset = 2.0 + (row * rowSpacing);
+        // Rows follow the runway northwest; columns run across it.
+        position[0] = position[0] + (rightOffset * 0.8) - (forwardOffset * 0.6);
+        position[2] = position[2] + (rightOffset * 0.6) + (forwardOffset * 0.8);
+        position[1] = GetGame().SurfaceY(position[0], position[2]) + 0.05;
+        return position;
+    }
+
+    protected void SpawnOptionalThirdPartyFixture(vector fixtureAnchor)
+    {
+        string fixtureType = "__PAINTZ_THIRD_PARTY_WEAPON_CLASS__";
+        if (fixtureType == "")
+        {
+            Print("[PaintZ][Sandbox] Optional third-party fixture not requested");
+            return;
+        }
+
+        if (!GetGame().ConfigIsExisting("CfgWeapons " + fixtureType))
+        {
+            Print("[PaintZ][Sandbox] Optional fixture missing from loaded mods: " + fixtureType);
+            return;
+        }
+
+        vector position = GetFixturePosition(fixtureAnchor, m_PaintZFixtureIndex);
+        EntityAI fixture = CreateGroundFixture(fixtureType, position);
+        if (!fixture || !Weapon_Base.Cast(fixture))
+        {
+            if (fixture)
+                GetGame().ObjectDelete(fixture);
+            Print("[PaintZ][Sandbox] Optional fixture is not a weapon: " + fixtureType);
+            return;
+        }
+
+        FillItem(fixture);
+        m_PaintZFixtureIndex++;
+        Print("[PaintZ][Sandbox] Spawned optional third-party fixture " + fixtureType);
+    }
+
+    protected EntityAI SpawnFixture(vector fixtureAnchor, string fixtureType, float rightOffset, float forwardOffset, string purpose)
+    {
+        vector position = fixtureAnchor;
+        position[0] = position[0] + (rightOffset * 0.8) - (forwardOffset * 0.6);
+        position[2] = position[2] + (rightOffset * 0.6) + (forwardOffset * 0.8);
+        position[1] = GetGame().SurfaceY(position[0], position[2]) + 0.05;
+
+        EntityAI fixture = CreateGroundFixture(fixtureType, position);
+        if (!fixture)
+        {
+            Print("[PaintZ][Sandbox] FAILED to spawn " + fixtureType + " - " + purpose);
+            return null;
+        }
+
+        FillItem(fixture);
+        Print("[PaintZ][Sandbox] Spawned " + fixtureType + " - " + purpose);
+        return fixture;
+    }
+
+    protected EntityAI CreateGroundFixture(string fixtureType, vector position)
+    {
+        // Let the engine use each item's configured resting orientation and
+        // trace its model onto the surface. Forcing yaw with zero pitch/roll
+        // afterwards stands weapons upright and invalidates that placement.
+        int flags = ECE_SETUP | ECE_PLACE_ON_SURFACE | ECE_ROTATIONFLAGS;
+        EntityAI fixture = EntityAI.Cast(GetGame().CreateObjectEx(fixtureType, position, flags, RF_DEFAULT));
+        if (fixture)
+        {
+            // Same native rotated surface placement used by inventory drops.
+            vector transform[4];
+            fixture.GetTransform(transform);
+            fixture.PlaceOnSurfaceRotated(transform, position, 0, 0, 0, true);
+            fixture.SetTransform(transform);
+        }
+        return fixture;
+    }
+
+    protected void FillItem(EntityAI entity)
+    {
+        if (!entity)
+            return;
+
+        ItemBase item = ItemBase.Cast(entity);
+        if (item && item.HasQuantity())
+            item.SetQuantity(item.GetQuantityMax());
+
+        Magazine magazine = Magazine.Cast(entity);
+        if (magazine)
+            magazine.ServerSetAmmoMax();
+    }
+
+    protected void KeepPlayersSafe()
+    {
+        array<Man> players = new array<Man>;
+        GetGame().GetPlayers(players);
+
+        foreach (Man man: players)
+        {
+            KeepPlayerSafe(PlayerBase.Cast(man));
+        }
+    }
+
+    protected void KeepPlayerSafe(PlayerBase player)
+    {
+        if (!player)
+            return;
+
+        player.SetHealth("", "Health", player.GetMaxHealth("", "Health"));
+        player.SetHealth("", "Blood", player.GetMaxHealth("", "Blood"));
+        player.SetHealth("", "Shock", player.GetMaxHealth("", "Shock"));
+        player.GetStatWater().Set(player.GetStatWater().GetMax());
+        player.GetStatEnergy().Set(player.GetStatEnergy().GetMax());
+    }
+};
+
+Mission CreateCustomMission(string path)
+{
+    return new CustomMission();
+}
