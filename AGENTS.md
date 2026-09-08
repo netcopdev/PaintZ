@@ -1,5 +1,60 @@
 # PaintZ Codex Instructions
 
+## Git branch safety — mandatory preflight
+
+Before modifying, creating, deleting, renaming, or generating ANY repository
+file, run:
+
+    git branch --show-current
+    git status --short
+    git log -1 --oneline
+
+Then determine whether the current branch is clearly intended for the user's
+current task.
+
+### Hard rule
+
+NEVER implement a new feature, fix, refactor, or unrelated change on an
+existing feature/fix branch merely because that branch is currently checked
+out.
+
+If the current branch contains work for another task, STOP BEFORE MODIFYING
+FILES.
+
+Do not:
+- add the new work to the unrelated branch
+- "temporarily" make the changes there
+- assume the user wants the current branch reused
+- switch branches silently
+- create a new branch silently
+- move existing uncommitted work between branches
+
+Instead, report:
+
+    Branch mismatch: current branch is <branch>.
+    This task appears unrelated to that branch.
+    No files were modified.
+
+A non-main branch should be treated as belonging to its named task unless the
+user explicitly says the new task belongs there.
+
+Examples:
+
+- current: feature/runtime-paint-rules
+  task: add spray animation
+  => STOP; unrelated task
+
+- current: feature/runtime-paint-rules
+  task: fix wildcard matching in runtime paint rules
+  => continue
+
+- current: fix/spray-action-animation
+  task: adjust spray animation timing
+  => continue
+
+When uncertain whether the task belongs to the current branch, STOP rather
+than modifying the repository.
+
 ## Mission
 
 PaintZ is a generic DayZ runtime painting framework.
