@@ -91,12 +91,7 @@ modded class ItemBase
         int restoredSelection = -1;
         int restoredScalePercent = 100;
 
-        PaintZ_PaintStateRuntime.RestorePersistedVisual(
-            this,
-            m_PaintZPaintCode,
-            restoredSelection,
-            restoredScalePercent
-        );
+        PaintZ_PaintStateRuntime.RestorePersistedVisual(this, m_PaintZPaintCode, restoredSelection, restoredScalePercent);
 
         m_PaintZPaintSelection = restoredSelection;
         m_PaintZPatternScalePercent = restoredScalePercent;
@@ -132,11 +127,6 @@ modded class ItemBase
             return;
 
         m_PaintZPaintCode = PaintZ_PaintStateRuntime.GetNetworkPaintCode(m_PaintZPaintCodeHash);
-        PaintZ_PaintVisuals.Apply(
-            this,
-            m_PaintZPaintCode,
-            m_PaintZPaintSelection,
-            m_PaintZPatternScalePercent
-        );
+        PaintZ_PaintVisuals.Apply(this, m_PaintZPaintCode, m_PaintZPaintSelection, m_PaintZPatternScalePercent);
     }
 };
