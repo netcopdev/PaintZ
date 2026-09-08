@@ -36,12 +36,10 @@ modded class ItemBase
         if (PaintZ_PaintCatalog.IsPatternPaint(paintCode))
         {
             float selectedScale = scalePercent * 0.01;
-            PaintZ_PaintLog.Info(string.Format(
-                "pattern_scale target=%1 max_dimension_m=%2 scale=%3",
-                GetType(),
-                maxDimensionMeters,
-                selectedScale
-            ));
+            string logText = "pattern_scale target=" + GetType();
+            logText += " max_dimension_m=" + maxDimensionMeters;
+            logText += " scale=" + selectedScale;
+            PaintZ_PaintLog.Info(logText);
         }
 
         return true;
