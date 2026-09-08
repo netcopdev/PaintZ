@@ -85,27 +85,19 @@ class PaintZ_ItemPolicy
 
     static bool IsPaintApplicationAllowed(EntityAI target)
     {
-        if (!target)
-            return false;
-
-        if (!s_ActiveConfig)
-            return false;
-
-        string category = GetItemType(target);
-        if (category == "")
+        if (!target || !s_ActiveConfig || !IsRelevantTarget(target))
             return false;
 
         string className = target.GetType();
         string normalizedClass = className;
         normalizedClass.ToLower();
-        string cacheKey = category + "|" + normalizedClass;
 
         bool cached;
-        if (s_DecisionCache.Find(cacheKey, cached))
+        if (s_DecisionCache.Find(normalizedClass, cached))
             return cached;
 
-        bool allowed = EvaluateConfig(target, category, className, normalizedClass, s_ActiveConfig);
-        s_DecisionCache.Insert(cacheKey, allowed);
+        bool allowed = EvaluateConfig(target, className, normalizedClass, s_ActiveConfig);
+        s_DecisionCache.Insert(normalizedClass, allowed);
         return allowed;
     }
 
@@ -165,8 +157,6 @@ class PaintZ_ItemPolicy
             return false;
         }
 
-        // Atomic from PaintZ's perspective: only a fully parsed and validated
-        // detached candidate reaches the active-policy assignment.
         s_ActiveConfig = candidate;
         s_DecisionCache.Clear();
         s_DomainCache.Clear();
@@ -372,10 +362,16 @@ class PaintZ_ItemPolicy
             return false;
         }
 
-        rule.type.ToLower();
-        if (rule.type != "weapon" && rule.type != "magazine" && rule.type != "all")
+        if (rule.type == "")
+            rule.type = "all";
+
+        string normalizedType = rule.type;
+        normalizedType.ToLower();
+        if (normalizedType == "all" || normalizedType == "weapon" || normalizedType == "magazine")
+            rule.type = normalizedType;
+        else if (!DomainTypeExists(rule.type))
         {
-            error = "type must be weapon, magazine, or all";
+            error = "type must be all, legacy weapon/magazine, or a valid DayZ base class: " + rule.type;
             return false;
         }
 
@@ -394,29 +390,20 @@ class PaintZ_ItemPolicy
         }
 
         rule.inherits.ToLower();
-        if (!InheritanceClassExists(rule.type, rule.inherits))
+        if (!InheritanceClassExists(rule.inherits))
         {
-            error = "inherits class does not exist for rule type: " + rule.inherits;
+            error = "inherits class does not exist: " + rule.inherits;
             return false;
         }
         return true;
     }
 
-    protected static bool InheritanceClassExists(string ruleType, string className)
+    protected static bool InheritanceClassExists(string className)
     {
         if (!GetGame())
             return false;
 
-        if ((ruleType == "weapon" || ruleType == "all") && GetGame().ConfigIsExisting("CfgWeapons " + className))
-            return true;
-
-        if ((ruleType == "magazine" || ruleType == "all") && GetGame().ConfigIsExisting("CfgMagazines " + className))
-            return true;
-
-        if (ruleType == "all" && GetGame().ConfigIsExisting("CfgVehicles " + className))
-            return true;
-
-        return false;
+        return GetGame().ConfigIsExisting("CfgWeapons " + className) || GetGame().ConfigIsExisting("CfgMagazines " + className) || GetGame().ConfigIsExisting("CfgVehicles " + className);
     }
 
     protected static bool ValidateAndNormalizeDomain(PaintZ_TargetDomainRule domain, out string error)
@@ -447,6 +434,11 @@ class PaintZ_ItemPolicy
     {
         string normalized = typeName;
         normalized.ToLower();
+
+        // These are script hierarchy names/aliases rather than guaranteed
+        // config classes. Keep them as generic roots available to JSON policy.
+        if (normalized == "itembase" || normalized == "inventoryitembase" || normalized == "inventoryitemsuper")
+            return true;
         if (normalized == "weapon_base" || normalized == "magazine_base")
             return true;
 
@@ -472,12 +464,29 @@ class PaintZ_ItemPolicy
         string normalized = typeName;
         normalized.ToLower();
 
+        if (normalized == "itembase" || normalized == "inventoryitembase" || normalized == "inventoryitemsuper")
+        {
+            ItemBase item;
+            if (Class.CastTo(item, target))
+                return true;
+
+            // Current DayZ declares Weapon and Magazine through the
+            // InventoryItemSuper/ItemBase alias. Keep explicit casts as a safe
+            // bridge for engine-backed classes and third-party descendants.
+            Weapon_Base anyWeapon;
+            if (Class.CastTo(anyWeapon, target))
+                return true;
+
+            Magazine anyMagazine;
+            return Class.CastTo(anyMagazine, target);
+        }
+
         Weapon_Base weapon;
-        if (normalized == "weapon_base")
+        if (normalized == "weapon_base" || normalized == "weapon")
             return Class.CastTo(weapon, target);
 
         Magazine magazine;
-        if (normalized == "magazine_base")
+        if (normalized == "magazine_base" || normalized == "magazine")
             return Class.CastTo(magazine, target) && !target.IsAmmoPile();
 
         return GetGame() && GetGame().IsKindOf(className, typeName);
@@ -496,13 +505,13 @@ class PaintZ_ItemPolicy
         return domains;
     }
 
-    protected static bool EvaluateConfig(EntityAI target, string category, string className, string normalizedClass, PaintZ_ItemPolicyConfig config)
+    protected static bool EvaluateConfig(EntityAI target, string className, string normalizedClass, PaintZ_ItemPolicyConfig config)
     {
         bool allowed = config.default_action == "allow";
         for (int i = 0; i < config.rules.Count(); i++)
         {
             PaintZ_ItemPolicyRule rule = config.rules.Get(i);
-            if (!TypeMatches(rule.type, category))
+            if (!RuleTypeMatches(target, className, rule.type))
                 continue;
 
             bool selectorMatches;
@@ -516,6 +525,16 @@ class PaintZ_ItemPolicy
         }
 
         return allowed;
+    }
+
+    protected static bool RuleTypeMatches(EntityAI target, string className, string ruleType)
+    {
+        string normalized = ruleType;
+        normalized.ToLower();
+        if (normalized == "" || normalized == "all")
+            return true;
+
+        return DomainTypeMatches(target, className, ruleType);
     }
 
     protected static bool GlobMatchesNormalized(string pattern, string value)
@@ -561,24 +580,6 @@ class PaintZ_ItemPolicy
             patternIndex++;
 
         return patternIndex == pattern.Length();
-    }
-
-    protected static string GetItemType(EntityAI target)
-    {
-        Weapon_Base weapon;
-        if (Class.CastTo(weapon, target))
-            return "weapon";
-
-        Magazine magazine;
-        if (Class.CastTo(magazine, target) && !target.IsAmmoPile())
-            return "magazine";
-
-        return "item";
-    }
-
-    protected static bool TypeMatches(string ruleType, string targetType)
-    {
-        return ruleType == "all" || ruleType == targetType;
     }
 
     protected static void ScheduleNextReload()
@@ -644,6 +645,5 @@ class PaintZ_ItemPolicy
         s_DomainCache.Clear();
         return true;
     }
-
 #endif
 };
