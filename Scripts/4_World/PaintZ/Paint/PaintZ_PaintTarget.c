@@ -1,16 +1,32 @@
 class PaintZ_PaintTarget
 {
-    static EntityAI ResolveActionTarget(ActionTarget actionTarget)
+    static EntityAI ResolveNewPaintTarget(ActionTarget actionTarget)
     {
         if (!actionTarget)
             return null;
 
         EntityAI entity = EntityAI.Cast(actionTarget.GetObject());
-        if (PaintZ_PaintInspector.IsSupportedTarget(entity))
+        if (PaintZ_ItemPolicy.IsRelevantTarget(entity))
             return entity;
 
         EntityAI parent = EntityAI.Cast(actionTarget.GetParent());
-        if (PaintZ_PaintInspector.IsSupportedTarget(parent))
+        if (PaintZ_ItemPolicy.IsRelevantTarget(parent))
+            return parent;
+
+        return entity;
+    }
+
+    static EntityAI ResolvePaintedTarget(ActionTarget actionTarget)
+    {
+        if (!actionTarget)
+            return null;
+
+        EntityAI entity = EntityAI.Cast(actionTarget.GetObject());
+        if (PaintZ_PaintedState.GetPaintedSelection(entity) >= 0)
+            return entity;
+
+        EntityAI parent = EntityAI.Cast(actionTarget.GetParent());
+        if (PaintZ_PaintedState.GetPaintedSelection(parent) >= 0)
             return parent;
 
         return entity;
@@ -25,14 +41,14 @@ class PaintZ_PaintTarget
         // and deliberately bypasses the runtime allow/exclude policy.
         if (paintCode != PaintZ_PaintConstants.PAINT_NONE)
         {
-            if (target.IsRuined() || !PaintZ_ItemPolicy.IsPaintApplicationAllowed(target))
+            if (!PaintZ_ItemPolicy.IsRelevantTarget(target) || target.IsRuined() || !PaintZ_ItemPolicy.IsPaintApplicationAllowed(target))
                 return false;
         }
 
-        Weapon_Base weapon;
-        if (Class.CastTo(weapon, target))
+        ItemBase item;
+        if (Class.CastTo(item, target))
         {
-            weapon.PaintZ_SetPaintState(paintCode, selectionIndex);
+            item.PaintZ_SetPaintState(paintCode, selectionIndex);
             return true;
         }
 

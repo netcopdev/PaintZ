@@ -29,14 +29,7 @@ class PaintZ_PaintVisuals
         if (!textures || textures.Count() == 0)
         {
             textures = new TStringArray();
-            string configRoot;
-
-            Weapon_Base weapon;
-            Magazine magazine;
-            if (Class.CastTo(weapon, target))
-                configRoot = "CfgWeapons";
-            else if (Class.CastTo(magazine, target))
-                configRoot = "CfgMagazines";
+            string configRoot = PaintZ_PaintInspector.GetConfigRoot(target);
 
             if (configRoot != "")
                 GetGame().ConfigGetTextArray(configRoot + " " + target.GetType() + " hiddenSelectionsTextures", textures);

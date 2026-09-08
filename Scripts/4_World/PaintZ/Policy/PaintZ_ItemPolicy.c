@@ -2,6 +2,7 @@ class PaintZ_ItemPolicy
 {
     static const int RPC_POLICY_SYNC = 782342;
     static const int MAX_SYNCHRONIZED_RULES = 4096;
+    static const int MAX_SYNCHRONIZED_DOMAINS = 1024;
     static const string PROFILE_DIRECTORY = "$profile:PaintZ";
     static const string PROFILE_PATH = "$profile:PaintZ/paintz_items.json";
     static const string PROFILE_README_PATH = "$profile:PaintZ/paintz_items_README.txt";
@@ -10,6 +11,7 @@ class PaintZ_ItemPolicy
 
     protected static ref PaintZ_ItemPolicyConfig s_ActiveConfig;
     protected static ref map<string, bool> s_DecisionCache = new map<string, bool>;
+    protected static ref map<string, bool> s_DomainCache = new map<string, bool>;
     protected static bool s_ServerStarted;
 
     static void StartServer()
@@ -51,11 +53,39 @@ class PaintZ_ItemPolicy
         s_ServerStarted = false;
         s_ActiveConfig = null;
         s_DecisionCache.Clear();
+        s_DomainCache.Clear();
+    }
+
+    static bool IsRelevantTarget(EntityAI target)
+    {
+        if (!target || !s_ActiveConfig || !s_ActiveConfig.domains)
+            return false;
+
+        string className = target.GetType();
+        string normalizedClass = className;
+        normalizedClass.ToLower();
+
+        bool cached;
+        if (s_DomainCache.Find(normalizedClass, cached))
+            return cached;
+
+        bool relevant;
+        for (int i = 0; i < s_ActiveConfig.domains.Count(); i++)
+        {
+            if (DomainMatches(target, className, normalizedClass, s_ActiveConfig.domains.Get(i)))
+            {
+                relevant = true;
+                break;
+            }
+        }
+
+        s_DomainCache.Insert(normalizedClass, relevant);
+        return relevant;
     }
 
     static bool IsPaintApplicationAllowed(EntityAI target)
     {
-        if (!target || !PaintZ_PaintInspector.IsSupportedTarget(target))
+        if (!target)
             return false;
 
         if (!s_ActiveConfig)
@@ -100,6 +130,13 @@ class PaintZ_ItemPolicy
         return s_ActiveConfig.rules.Count();
     }
 
+    static int GetDomainRuleCount()
+    {
+        if (!s_ActiveConfig || !s_ActiveConfig.domains)
+            return 0;
+        return s_ActiveConfig.domains.Count();
+    }
+
     protected static void ReloadScheduled()
     {
         ReloadInternal(true);
@@ -132,13 +169,14 @@ class PaintZ_ItemPolicy
         // detached candidate reaches the active-policy assignment.
         s_ActiveConfig = candidate;
         s_DecisionCache.Clear();
+        s_DomainCache.Clear();
 
         BroadcastToClients();
 
         if (periodic)
-            Info("config successfully reloaded rules=" + GetRuleCount());
+            Info("config successfully reloaded rules=" + GetRuleCount() + " domains=" + GetDomainRuleCount());
         else
-            Info("config loaded rules=" + GetRuleCount());
+            Info("config loaded rules=" + GetRuleCount() + " domains=" + GetDomainRuleCount());
 
         if (candidate.reload_seconds == -1)
             Info("reload mode=startup-only reload_seconds=-1");
@@ -167,6 +205,14 @@ class PaintZ_ItemPolicy
             rpc.Write(rule.type);
             rpc.Write(rule.class_pattern);
             rpc.Write(rule.inherits);
+        }
+
+        rpc.Write(s_ActiveConfig.domains.Count());
+        for (int domainIndex = 0; domainIndex < s_ActiveConfig.domains.Count(); domainIndex++)
+        {
+            PaintZ_TargetDomainRule domain = s_ActiveConfig.domains.Get(domainIndex);
+            rpc.Write(domain.type);
+            rpc.Write(domain.class_pattern);
         }
 
         rpc.Send(player, RPC_POLICY_SYNC, true, identity);
@@ -200,6 +246,25 @@ class PaintZ_ItemPolicy
             candidate.rules.Insert(rule);
         }
 
+        int domainCount;
+        if (!ctx.Read(domainCount) || domainCount < 0 || domainCount > MAX_SYNCHRONIZED_DOMAINS)
+        {
+            Error("client policy sync has invalid domain count");
+            return false;
+        }
+
+        candidate.domains = new array<ref PaintZ_TargetDomainRule>;
+        for (int domainIndex = 0; domainIndex < domainCount; domainIndex++)
+        {
+            PaintZ_TargetDomainRule domain = new PaintZ_TargetDomainRule();
+            if (!ctx.Read(domain.type) || !ctx.Read(domain.class_pattern))
+            {
+                Error("client policy sync was truncated at domain=" + domainIndex);
+                return false;
+            }
+            candidate.domains.Insert(domain);
+        }
+
         string validationError;
         if (!ValidateAndNormalize(candidate, validationError))
         {
@@ -209,7 +274,8 @@ class PaintZ_ItemPolicy
 
         s_ActiveConfig = candidate;
         s_DecisionCache.Clear();
-        Info("client policy synchronized rules=" + ruleCount);
+        s_DomainCache.Clear();
+        Info("client policy synchronized rules=" + ruleCount + " domains=" + domainCount);
         return true;
     }
 
@@ -249,6 +315,12 @@ class PaintZ_ItemPolicy
         if (!config.rules)
             config.rules = new array<ref PaintZ_ItemPolicyRule>;
 
+        if (!config.domains || config.domains.Count() == 0)
+        {
+            config.domains = CreateDefaultDomains();
+            Info("domains missing or empty; using weapon and detachable-magazine defaults");
+        }
+
         bool valid = true;
         string firstError;
         for (int i = 0; i < config.rules.Count(); i++)
@@ -268,6 +340,18 @@ class PaintZ_ItemPolicy
         {
             error = firstError;
             return false;
+        }
+
+        for (int domainIndex = 0; domainIndex < config.domains.Count(); domainIndex++)
+        {
+            PaintZ_TargetDomainRule domain = config.domains.Get(domainIndex);
+            string domainError;
+            if (!ValidateAndNormalizeDomain(domain, domainError))
+            {
+                error = "domain " + domainIndex + " " + domainError;
+                Error("invalid domain index=" + domainIndex + " error=" + domainError);
+                return false;
+            }
         }
 
         return true;
@@ -329,7 +413,87 @@ class PaintZ_ItemPolicy
         if ((ruleType == "magazine" || ruleType == "all") && GetGame().ConfigIsExisting("CfgMagazines " + className))
             return true;
 
+        if (ruleType == "all" && GetGame().ConfigIsExisting("CfgVehicles " + className))
+            return true;
+
         return false;
+    }
+
+    protected static bool ValidateAndNormalizeDomain(PaintZ_TargetDomainRule domain, out string error)
+    {
+        if (!domain)
+        {
+            error = "must be a JSON object";
+            return false;
+        }
+
+        if (domain.type == "" && domain.class_pattern == "")
+        {
+            error = "requires type, class_pattern, or both";
+            return false;
+        }
+
+        if (domain.type != "" && !DomainTypeExists(domain.type))
+        {
+            error = "type class does not exist: " + domain.type;
+            return false;
+        }
+
+        domain.class_pattern.ToLower();
+        return true;
+    }
+
+    protected static bool DomainTypeExists(string typeName)
+    {
+        string normalized = typeName;
+        normalized.ToLower();
+        if (normalized == "weapon_base" || normalized == "magazine_base")
+            return true;
+
+        if (!GetGame())
+            return false;
+
+        return GetGame().ConfigIsExisting("CfgWeapons " + typeName) || GetGame().ConfigIsExisting("CfgMagazines " + typeName) || GetGame().ConfigIsExisting("CfgVehicles " + typeName);
+    }
+
+    protected static bool DomainMatches(EntityAI target, string className, string normalizedClass, PaintZ_TargetDomainRule domain)
+    {
+        if (domain.type != "" && !DomainTypeMatches(target, className, domain.type))
+            return false;
+
+        if (domain.class_pattern != "" && !GlobMatchesNormalized(domain.class_pattern, normalizedClass))
+            return false;
+
+        return true;
+    }
+
+    protected static bool DomainTypeMatches(EntityAI target, string className, string typeName)
+    {
+        string normalized = typeName;
+        normalized.ToLower();
+
+        Weapon_Base weapon;
+        if (normalized == "weapon_base")
+            return Class.CastTo(weapon, target);
+
+        Magazine magazine;
+        if (normalized == "magazine_base")
+            return Class.CastTo(magazine, target) && !target.IsAmmoPile();
+
+        return GetGame() && GetGame().IsKindOf(className, typeName);
+    }
+
+    protected static ref array<ref PaintZ_TargetDomainRule> CreateDefaultDomains()
+    {
+        ref array<ref PaintZ_TargetDomainRule> domains = new array<ref PaintZ_TargetDomainRule>;
+        PaintZ_TargetDomainRule weapons = new PaintZ_TargetDomainRule();
+        weapons.type = "Weapon_Base";
+        domains.Insert(weapons);
+
+        PaintZ_TargetDomainRule magazines = new PaintZ_TargetDomainRule();
+        magazines.type = "Magazine_Base";
+        domains.Insert(magazines);
+        return domains;
     }
 
     protected static bool EvaluateConfig(EntityAI target, string category, string className, string normalizedClass, PaintZ_ItemPolicyConfig config)
@@ -409,7 +573,7 @@ class PaintZ_ItemPolicy
         if (Class.CastTo(magazine, target) && !target.IsAmmoPile())
             return "magazine";
 
-        return "";
+        return "item";
     }
 
     protected static bool TypeMatches(string ruleType, string targetType)
@@ -477,7 +641,9 @@ class PaintZ_ItemPolicy
 
         s_ActiveConfig = config;
         s_DecisionCache.Clear();
+        s_DomainCache.Clear();
         return true;
     }
+
 #endif
 };

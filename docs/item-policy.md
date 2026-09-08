@@ -23,6 +23,10 @@ instructions and examples belong in the adjacent README.
   "version": 1,
   "reload_seconds": 60,
   "default_action": "allow",
+  "domains": [
+    { "type": "Weapon_Base" },
+    { "type": "Magazine_Base" }
+  ],
   "rules": [
     {
       "action": "exclude",
@@ -38,12 +42,33 @@ instructions and examples belong in the adjacent README.
   `-1` means startup-only. `0` and values below `-1` are normalized to `-1` with
   a warning, preventing a rapid reload loop.
 - `default_action` is required and must be `allow` or `exclude`.
+- `domains` is optional for existing version-1 files. Missing or empty uses the
+  shipped weapon/detachable-magazine defaults.
 - `rules` is an array of rule objects. An absent or empty array means
   `default_action` is the complete policy.
 
 JSON requires double quotes around property names and string values. Comments,
 unquoted keys, trailing commas, and pseudo-objects such as
 `{ action: exclude, type: weapon }` are invalid.
+
+## Target domains
+
+Domain entries are OR. A `type` and `class_pattern` in one entry are AND. Each
+entry requires at least one field. `type` uses DayZ config inheritance;
+`class_pattern` uses the same case-insensitive `*` and `?` matcher as policy.
+
+The default `Weapon_Base` domain uses the runtime weapon type. The default
+`Magazine_Base` domain uses DayZ's native `Magazine` runtime type and rejects
+`IsAmmoPile()`, preserving detachable-magazine scope.
+
+Domains control new-paint relevance only. Policy exclusion does not remove an
+object from its domain, and neither domains nor policy are consulted when
+stripping existing PaintZ paint.
+
+Because DayZ's JSON loader does not preserve the distinction between an omitted
+array and an explicit empty array, both select the safe defaults. To intentionally
+match no objects, configure a valid nonmatching positive rule such as
+`{"class_pattern":"PaintZ_Disabled_*"}`.
 
 ## Rule evaluation and precedence
 

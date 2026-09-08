@@ -7,11 +7,11 @@ PaintZ must discover compatibility from the live target object, not from a maint
 ## Runtime flow
 
 1. Spray-can action receives an `ActionTarget`.
-2. Target must be a weapon or detachable magazine.
-3. `PaintZ_PaintInspector` reads `target.GetHiddenSelections()`.
-4. Global selection-name heuristics choose a likely body/camo selection.
-5. If no safe choice exists, the target is rejected and the player is informed.
-6. The cached server-side item policy determines whether a new application is allowed. It performs no disk I/O in the action path.
+2. Cached target-domain rules decide whether PaintZ should offer new-paint feedback.
+3. The cached item policy independently decides whether a new application is allowed.
+4. `PaintZ_PaintInspector` reads the runtime object's hidden selections.
+5. Global selection-name heuristics independently determine technical capability.
+6. The server re-runs domain, can, target, policy, and capability checks at completion.
 7. Painting stores the `PZ-T-ID` product code as its session identity and calls `SetObjectTexture()` on the selected hidden-selection index.
 8. The server sends that product code and selection index to connected clients, which reapply the same finish-rendered surface asset.
 
@@ -30,6 +30,17 @@ strips or resets existing paint, and stripping bypasses the policy. Ordered
 rules use `include`/`exclude`, `weapon`/`magazine`/`all`, and exactly one of a
 case-insensitive glob `class_pattern` or runtime config-hierarchy `inherits`
 selector. The last matching rule wins over `default_action`.
+
+The optional `domains` array is a positive OR-list for new-paint interaction
+scope. Each entry may contain a DayZ config `type`, a case-insensitive
+`class_pattern`, or both (AND). Missing or empty domains use the current weapon
+and detachable-magazine defaults; a valid nonmatching rule may intentionally
+disable new-paint scope. Domain membership does not imply policy eligibility or
+technical capability.
+
+Stripping locates existing PaintZ-painted state directly and never consults
+current domains, policy, or the current selection heuristic. Durable restart
+persistence is not yet implemented; see `PERSISTENCE_NOTES.md`.
 
 ## Why no per-weapon definitions
 

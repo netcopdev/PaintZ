@@ -1,4 +1,4 @@
-modded class Weapon_Base
+modded class ItemBase
 {
     protected static const int PAINTZ_RPC_PAINT_STATE = 782341;
 
@@ -15,6 +15,16 @@ modded class Weapon_Base
 
         if (GetGame().IsServer() && GetGame().IsMultiplayer())
             GetGame().RPCSingleParam(this, PAINTZ_RPC_PAINT_STATE, new Param2<string, int>(m_PaintZPaintCode, m_PaintZPaintSelection), true, null);
+    }
+
+    string PaintZ_GetPaintCode()
+    {
+        return m_PaintZPaintCode;
+    }
+
+    int PaintZ_GetPaintSelection()
+    {
+        return m_PaintZPaintSelection;
     }
 
     protected void PaintZ_ApplyPaintVisual()

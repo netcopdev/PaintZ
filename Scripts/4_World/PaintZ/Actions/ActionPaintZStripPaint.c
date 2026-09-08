@@ -28,9 +28,8 @@ class ActionPaintZStripPaint : ActionContinuousBase
         if (stripper.HasQuantity() && stripper.GetQuantity() < PaintZ_PaintConstants.STRIP_COST)
             return false;
 
-        EntityAI entity = PaintZ_PaintTarget.ResolveActionTarget(target);
-        PaintZ_PaintInspectionResult inspection = PaintZ_PaintInspector.Inspect(entity);
-        return inspection.m_Paintable && PaintZ_PaintVisuals.HasPaint(entity, inspection.m_SelectionIndex);
+        EntityAI entity = PaintZ_PaintTarget.ResolvePaintedTarget(target);
+        return PaintZ_PaintedState.GetPaintedSelection(entity) >= 0;
     }
 
     override void OnFinishProgressServer(ActionData action_data)
@@ -38,7 +37,7 @@ class ActionPaintZStripPaint : ActionContinuousBase
         if (!action_data.m_Target)
             return;
 
-        EntityAI entity = PaintZ_PaintTarget.ResolveActionTarget(action_data.m_Target);
+        EntityAI entity = PaintZ_PaintTarget.ResolvePaintedTarget(action_data.m_Target);
         PaintZ_PaintStripperCan stripper = PaintZ_PaintStripperCan.Cast(action_data.m_MainItem);
         PlayerBase player = action_data.m_Player;
         if (!entity || !stripper || !player)
@@ -50,29 +49,23 @@ class ActionPaintZStripPaint : ActionContinuousBase
             return;
         }
 
-        PaintZ_PaintInspectionResult inspection = PaintZ_PaintInspector.Inspect(entity);
-        if (!inspection.m_Paintable || inspection.m_SelectionIndex < 0)
-        {
-            player.MessageStatus("This item's paint cannot be stripped safely.");
-            return;
-        }
-
         // Another player may have stripped it while this action was running.
-        if (!PaintZ_PaintVisuals.HasPaint(entity, inspection.m_SelectionIndex))
+        int selectionIndex = PaintZ_PaintedState.GetPaintedSelection(entity);
+        if (selectionIndex < 0)
         {
-            PaintZ_PaintLog.Info("strip rejected target=" + entity.GetType() + " reason=No PaintZ paint on selected surface");
+            PaintZ_PaintLog.Info("strip rejected target=" + entity.GetType() + " reason=No PaintZ painted state");
             player.MessageStatus("This item has no PaintZ paint to strip.");
             return;
         }
 
-        if (!PaintZ_PaintTarget.SetPaint(entity, PaintZ_PaintConstants.PAINT_NONE, inspection.m_SelectionIndex))
+        if (!PaintZ_PaintTarget.SetPaint(entity, PaintZ_PaintConstants.PAINT_NONE, selectionIndex))
         {
             player.MessageStatus("PaintZ could not restore this item's original finish.");
             return;
         }
 
         stripper.AddQuantity(-PaintZ_PaintConstants.STRIP_COST, false);
-        PaintZ_PaintLog.Info("stripped target=" + entity.GetType() + " selection=" + inspection.m_SelectionName + " index=" + inspection.m_SelectionIndex);
+        PaintZ_PaintLog.Info("stripped target=" + entity.GetType() + " selection_index=" + selectionIndex);
         player.MessageStatus("Original finish restored on " + entity.GetDisplayName() + ".");
     }
 };

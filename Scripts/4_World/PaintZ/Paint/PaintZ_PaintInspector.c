@@ -1,25 +1,12 @@
 class PaintZ_PaintInspector
 {
-    static bool IsSupportedTarget(EntityAI target)
-    {
-        if (!target)
-            return false;
-
-        Weapon_Base weapon;
-        if (Class.CastTo(weapon, target))
-            return true;
-
-        Magazine magazine;
-        return Class.CastTo(magazine, target) && !target.IsAmmoPile();
-    }
-
     static PaintZ_PaintInspectionResult Inspect(EntityAI target)
     {
         PaintZ_PaintInspectionResult result = new PaintZ_PaintInspectionResult();
 
-        if (!IsSupportedTarget(target))
+        if (!target || !PaintZ_PaintedState.SupportsTarget(target))
         {
-            result.m_Reason = "Target is not a weapon or detachable magazine";
+            result.m_Reason = "Target type cannot carry PaintZ state";
             return result;
         }
 
@@ -96,7 +83,7 @@ class PaintZ_PaintInspector
         return false;
     }
 
-    protected static TStringArray GetRuntimeSelections(EntityAI target)
+    static TStringArray GetRuntimeSelections(EntityAI target)
     {
         TStringArray selections = target.GetHiddenSelections();
         if (selections && selections.Count() > 0)
@@ -108,19 +95,27 @@ class PaintZ_PaintInspector
         // inherited config array; this remains runtime inspection and contains
         // no item classname knowledge.
         selections = new TStringArray();
-        string configRoot;
-
-        Weapon_Base weapon;
-        Magazine magazine;
-        if (Class.CastTo(weapon, target))
-            configRoot = "CfgWeapons";
-        else if (Class.CastTo(magazine, target))
-            configRoot = "CfgMagazines";
-        else
+        string configRoot = GetConfigRoot(target);
+        if (configRoot == "")
             return selections;
 
         GetGame().ConfigGetTextArray(configRoot + " " + target.GetType() + " hiddenSelections", selections);
         return selections;
+    }
+
+    static string GetConfigRoot(EntityAI target)
+    {
+        if (!target || !GetGame())
+            return "";
+
+        string className = target.GetType();
+        if (GetGame().ConfigIsExisting("CfgWeapons " + className))
+            return "CfgWeapons";
+        if (GetGame().ConfigIsExisting("CfgMagazines " + className))
+            return "CfgMagazines";
+        if (GetGame().ConfigIsExisting("CfgVehicles " + className))
+            return "CfgVehicles";
+        return "";
     }
 
     protected static int GetRuntimeSelectionIndex(EntityAI target, TStringArray selections, string selectionName)
