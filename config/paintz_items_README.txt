@@ -61,31 +61,66 @@ Rules
 Rules run from top to bottom. Every matching rule replaces the current result,
 so the last matching rule wins.
 
-action                  "include" or "exclude".
-type                    Optional scope. Omit it or use "all" for all configured
-                        domains. Otherwise use any valid DayZ base/config class.
-                        Legacy values "weapon" and "magazine" remain accepted.
-class_pattern           Case-insensitive classname selector using * and ?.
-inherits                DayZ config inheritance selector.
-inventory_slot          Exact declared-slot selector.
-inventory_slot_pattern  Wildcard declared-slot selector.
+Different selector groups inside ONE rule are AND. Multiple values inside the
+same selector group are OR. Singular and plural forms of the same selector are
+combined into the same OR group.
 
-Each rule must contain exactly one selector from class_pattern, inherits,
-inventory_slot, or inventory_slot_pattern. type is a scope, not a selector.
+action                    "include" or "exclude".
+type                      Optional scope. Omit it or use "all" for all configured
+                          domains. Otherwise use any valid DayZ base/config class.
+                          Legacy values "weapon" and "magazine" remain accepted.
+class_pattern             Single case-insensitive classname glob using * and ?.
+class_patterns            OR-list of classname globs.
+inherits                  Single DayZ config inheritance selector.
+inherits_any              OR-list of inheritance selectors.
+inventory_slot            Single exact declared-slot selector.
+inventory_slots           OR-list of exact declared-slot selectors.
+inventory_slot_pattern    Single wildcard declared-slot selector.
+inventory_slot_patterns   OR-list of wildcard declared-slot selectors.
+
+Each rule must contain at least one selector. type is a scope, not a selector.
+Empty strings inside plural selector arrays are invalid.
 
 Valid JSON examples
 -------------------
-Exclude a weapon family:
+Exclude several optic classes in one rule:
+{
+  "action": "exclude",
+  "class_patterns": [
+    "ACOGOptic",
+    "HuntingOptic",
+    "MK4Optic*"
+  ]
+}
+
+Exclude TTC/MMG optics only. The class group is OR, then ANDed with the slot
+condition:
+{
+  "action": "exclude",
+  "class_patterns": ["TTC_*", "MMG_*"],
+  "inventory_slot_pattern": "*optics*"
+}
+
+Scope a class pattern to weapons only:
 {
   "action": "exclude",
   "type": "Weapon_Base",
   "class_pattern": "TTC_*"
 }
 
-Exclude everything declaring a particular attachment slot:
+Singular + plural values of the same selector are OR:
 {
   "action": "exclude",
-  "inventory_slot": "weaponOptics"
+  "class_pattern": "Vanilla_*",
+  "class_patterns": ["TTC_*", "MMG_*"]
+}
+
+The previous rule matches Vanilla_* OR TTC_* OR MMG_*.
+
+Exclude everything declaring either of two exact attachment slots:
+{
+  "action": "exclude",
+  "inventory_slots": ["weaponOptics", "pistolOptics"]
 }
 
 Allow a narrower slot family again by placing this later in rules:
