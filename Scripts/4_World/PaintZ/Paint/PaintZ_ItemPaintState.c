@@ -88,13 +88,18 @@ modded class ItemBase
 
     void PaintZ_RestoreLoadedPaint()
     {
+        int restoredSelection = -1;
+        int restoredScalePercent = 100;
+
         PaintZ_PaintStateRuntime.RestorePersistedVisual(
             this,
             m_PaintZPaintCode,
-            m_PaintZPaintSelection,
-            m_PaintZPatternScalePercent
+            restoredSelection,
+            restoredScalePercent
         );
 
+        m_PaintZPaintSelection = restoredSelection;
+        m_PaintZPatternScalePercent = restoredScalePercent;
         m_PaintZPaintCodeHash = PaintZ_PaintStateRuntime.GetNetworkHash(m_PaintZPaintCode);
         if (GetGame().IsServer())
             SetSynchDirty();
