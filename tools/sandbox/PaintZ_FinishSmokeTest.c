@@ -151,6 +151,16 @@ class PaintZ_FinishSmokeTest
         Check(!PaintZ_ItemPolicy.IsPaintApplicationAllowed(weapon), "matching broad rule excludes weapon");
         Check(PaintZ_ItemPolicy.IsPaintApplicationAllowed(magazine), "type filter preserves magazine");
 
+        PaintZ_PaintInspectionResult excludedInspection = PaintZ_PaintInspector.Inspect(weapon);
+        if (excludedInspection.m_Paintable)
+        {
+            ItemBase excludedCan = ItemBase.Cast(GetGame().CreateObjectEx("PaintZ_SprayCan_ODG", "4580 0 10200", ECE_PLACE_ON_SURFACE));
+            ActionTarget excludedTarget = new ActionTarget(weapon, null, -1, weapon.GetPosition(), 0);
+            ActionPaintZPaintBase excludedAction = new ActionPaintZPaint_S_ODG;
+            Check(excludedCan && excludedAction && !excludedAction.ActionCondition(null, excludedTarget, excludedCan), "excluded target does not offer Paint action");
+            GetGame().ObjectDelete(excludedCan);
+        }
+
         PaintZ_ItemPolicyConfig magazineExcluded = MakePolicy("allow");
         magazineExcluded.rules.Insert(MakePatternRule("exclude", "magazine", "Mag_CMAG_30Rnd_Black"));
         Check(PaintZ_ItemPolicy.InstallConfigForTests(magazineExcluded), "exact magazine policy validates");

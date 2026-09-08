@@ -1,8 +1,12 @@
 class PaintZ_ItemPolicy
 {
+    static const int RPC_POLICY_SYNC = 782342;
+    static const int MAX_SYNCHRONIZED_RULES = 4096;
     static const string PROFILE_DIRECTORY = "$profile:PaintZ";
     static const string PROFILE_PATH = "$profile:PaintZ/paintz_items.json";
+    static const string PROFILE_README_PATH = "$profile:PaintZ/paintz_items_README.txt";
     static const string BUNDLED_DEFAULT_PATH = "PaintZ/config/paintz_items.default.json";
+    static const string BUNDLED_README_PATH = "PaintZ/config/paintz_items_README.txt";
 
     protected static ref PaintZ_ItemPolicyConfig s_ActiveConfig;
     protected static ref map<string, bool> s_DecisionCache = new map<string, bool>;
@@ -15,6 +19,14 @@ class PaintZ_ItemPolicy
 
         s_ServerStarted = true;
         MakeDirectory(PROFILE_DIRECTORY);
+
+        if (!FileExist(PROFILE_README_PATH))
+        {
+            if (!CopyFile(BUNDLED_README_PATH, PROFILE_README_PATH))
+                Warn("Could not create runtime item-policy README from " + BUNDLED_README_PATH);
+            else
+                Info("created runtime README path=" + PROFILE_README_PATH);
+        }
 
         if (!FileExist(PROFILE_PATH))
         {
@@ -45,11 +57,6 @@ class PaintZ_ItemPolicy
     {
         if (!target || !PaintZ_PaintInspector.IsSupportedTarget(target))
             return false;
-
-        // Remote clients do not read the server profile. The server checks the
-        // action condition and checks again at the mutation boundary.
-        if (GetGame() && !GetGame().IsServer())
-            return true;
 
         if (!s_ActiveConfig)
             return false;
@@ -104,7 +111,7 @@ class PaintZ_ItemPolicy
         string loadError;
         if (!JsonFileLoader<PaintZ_ItemPolicyConfig>.LoadFile(PROFILE_PATH, candidate, loadError))
         {
-            Error("config load failed path=" + PROFILE_PATH + " error=" + loadError);
+            Reject("invalid JSON or incompatible value: " + loadError);
             if (periodic && s_ActiveConfig)
                 Error("reload rejected; continuing with previous valid policy");
             ScheduleNextReload();
@@ -114,7 +121,7 @@ class PaintZ_ItemPolicy
         string validationError;
         if (!ValidateAndNormalize(candidate, validationError))
         {
-            Error("config validation failed path=" + PROFILE_PATH + " error=" + validationError);
+            Reject(validationError);
             if (periodic && s_ActiveConfig)
                 Error("reload rejected; continuing with previous valid policy");
             ScheduleNextReload();
@@ -125,6 +132,8 @@ class PaintZ_ItemPolicy
         // detached candidate reaches the active-policy assignment.
         s_ActiveConfig = candidate;
         s_DecisionCache.Clear();
+
+        BroadcastToClients();
 
         if (periodic)
             Info("config successfully reloaded rules=" + GetRuleCount());
@@ -137,6 +146,70 @@ class PaintZ_ItemPolicy
             Info("reload mode=periodic interval_seconds=" + candidate.reload_seconds);
 
         ScheduleNextReload();
+        return true;
+    }
+
+    static void SendToClient(PlayerBase player, PlayerIdentity identity)
+    {
+        if (!player || !identity || !s_ActiveConfig)
+            return;
+
+        ScriptRPC rpc = new ScriptRPC();
+        rpc.Write(s_ActiveConfig.version);
+        rpc.Write(s_ActiveConfig.reload_seconds);
+        rpc.Write(s_ActiveConfig.default_action);
+        rpc.Write(s_ActiveConfig.rules.Count());
+
+        for (int i = 0; i < s_ActiveConfig.rules.Count(); i++)
+        {
+            PaintZ_ItemPolicyRule rule = s_ActiveConfig.rules.Get(i);
+            rpc.Write(rule.action);
+            rpc.Write(rule.type);
+            rpc.Write(rule.class_pattern);
+            rpc.Write(rule.inherits);
+        }
+
+        rpc.Send(player, RPC_POLICY_SYNC, true, identity);
+    }
+
+    static bool ReceiveFromServer(ParamsReadContext ctx)
+    {
+        PaintZ_ItemPolicyConfig candidate = new PaintZ_ItemPolicyConfig();
+        int ruleCount;
+
+        if (!ctx.Read(candidate.version) || !ctx.Read(candidate.reload_seconds) || !ctx.Read(candidate.default_action) || !ctx.Read(ruleCount))
+        {
+            Error("client policy sync was truncated");
+            return false;
+        }
+
+        if (ruleCount < 0 || ruleCount > MAX_SYNCHRONIZED_RULES)
+        {
+            Error("client policy sync has invalid rule count=" + ruleCount);
+            return false;
+        }
+
+        for (int i = 0; i < ruleCount; i++)
+        {
+            PaintZ_ItemPolicyRule rule = new PaintZ_ItemPolicyRule();
+            if (!ctx.Read(rule.action) || !ctx.Read(rule.type) || !ctx.Read(rule.class_pattern) || !ctx.Read(rule.inherits))
+            {
+                Error("client policy sync was truncated at rule=" + i);
+                return false;
+            }
+            candidate.rules.Insert(rule);
+        }
+
+        string validationError;
+        if (!ValidateAndNormalize(candidate, validationError))
+        {
+            Error("client policy sync rejected: " + validationError);
+            return false;
+        }
+
+        s_ActiveConfig = candidate;
+        s_DecisionCache.Clear();
+        Info("client policy synchronized rules=" + ruleCount);
         return true;
     }
 
@@ -186,7 +259,7 @@ class PaintZ_ItemPolicy
             {
                 Error("invalid rule index=" + i + " error=" + ruleError);
                 if (firstError == "")
-                    firstError = "invalid rule index=" + i + ": " + ruleError;
+                    firstError = "rule " + i + " " + ruleError;
                 valid = false;
             }
         }
@@ -204,7 +277,7 @@ class PaintZ_ItemPolicy
     {
         if (!rule)
         {
-            error = "rule object is null";
+            error = "must be a JSON object.";
             return false;
         }
 
@@ -354,6 +427,21 @@ class PaintZ_ItemPolicy
             GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(ReloadScheduled, s_ActiveConfig.reload_seconds * 1000, false);
     }
 
+    protected static void BroadcastToClients()
+    {
+        if (!GetGame() || !GetGame().IsServer() || !s_ActiveConfig)
+            return;
+
+        array<Man> players = new array<Man>;
+        GetGame().GetPlayers(players);
+        foreach (Man man : players)
+        {
+            PlayerBase player = PlayerBase.Cast(man);
+            if (player && player.GetIdentity())
+                SendToClient(player, player.GetIdentity());
+        }
+    }
+
     protected static void Info(string text)
     {
         Print("[PaintZ][ItemPolicy] " + text);
@@ -367,6 +455,12 @@ class PaintZ_ItemPolicy
     protected static void Error(string text)
     {
         Print("[PaintZ][ItemPolicy] ERROR: " + text);
+    }
+
+    protected static void Reject(string reason)
+    {
+        Print("[PaintZ][ItemPolicy] Config rejected: " + reason);
+        Print("[PaintZ][ItemPolicy] See " + PROFILE_README_PATH);
     }
 
 #ifdef DIAG_DEVELOPER

@@ -1,28 +1,12 @@
 {
-  "_description": "Controls which weapon and detachable-magazine classes may receive NEW PaintZ paint applications. This policy never removes, resets, or invalidates paint already on an item.",
-  "_state_help": "Already-painted items keep their finish when excluded. Excluded painted items may still be stripped. Allowing the class again permits normal painting and repainting. Persisted paint state and this eligibility policy are separate concerns.",
-  "_reload_help": "Set reload_seconds to a positive whole number to reload this file periodically at approximately that interval. Set it to -1 for startup-only loading. Values 0 and below -1 are treated as -1 with a warning so they cannot create a rapid reload loop. A failed reload leaves the previous valid policy active.",
-  "_default_action_help": "default_action establishes the result before rules are evaluated. Valid values are allow and exclude.",
-  "_rule_help": [
-    "Rules are evaluated from top to bottom and every matching rule updates the result, so the last matching rule wins.",
-    "action must be include or exclude.",
-    "type must be weapon, magazine, or all. Runtime inheritance determines the actual item type; classname text is not used for type detection.",
-    "class_pattern is case-insensitive. * matches zero or more characters and ? matches exactly one character. A value without wildcards is an exact classname match.",
-    "inherits is an optional alternative to class_pattern and is matched case-insensitively through the DayZ runtime config inheritance hierarchy.",
-    "Each rule must use exactly one selector: class_pattern or inherits.",
-    "If rules is absent or empty, default_action is the complete policy. Duplicate or overlapping rules are permitted and resolve by the same last-match-wins ordering.",
-    "Rules affect new paint application and repainting only. They never alter existing paint and never block Strip Paint.",
-    "Invalid JSON or invalid rules reject the entire candidate configuration. During periodic reload the previous valid policy remains active."
-  ],
-  "_examples": [
-    "Exclude all TTC weapons: { action: exclude, type: weapon, class_pattern: TTC_* }",
-    "Then allow TTC AK variants again with a later rule: { action: include, type: weapon, class_pattern: TTC_AK* }",
-    "Exclude one exact magazine: { action: exclude, type: magazine, class_pattern: Example_BrokenMagazine }",
-    "Exclude descendants of a configured base class: { action: exclude, type: weapon, inherits: Example_BaseWeapon }",
-    "Other wildcard examples: *_AKM, TTC_*_Black, Morty_?K*, and *"
-  ],
   "version": 1,
   "reload_seconds": 60,
   "default_action": "allow",
-  "rules": []
+  "rules": [
+    {
+      "action": "exclude",
+      "type": "weapon",
+      "class_pattern": "*crossbow*"
+    }
+  ]
 }

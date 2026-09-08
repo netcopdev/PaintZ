@@ -20,7 +20,10 @@ PaintZ must discover compatibility from the live target object, not from a maint
 `$profile:PaintZ/paintz_items.json` is an administrative policy for new paint
 applications and repainting. It is loaded atomically from PaintZ's perspective:
 a detached candidate is parsed and validated before replacing the active cached
-policy. Failed periodic reloads retain the last-known-good policy.
+policy. Failed periodic reloads retain the last-known-good policy. The runtime
+JSON contains only configuration data; PaintZ creates the non-overwritten
+`paintz_items_README.txt` beside it for operational help. The complete contract
+is documented in `docs/item-policy.md`.
 
 The policy is deliberately separate from paint state. Excluding a class never
 strips or resets existing paint, and stripping bypasses the policy. Ordered
