@@ -3,6 +3,7 @@ param(
     [string]$DayZServerExe,
     [string]$DayZClientExe,
     [string]$AddonBuilderExe,
+    [string]$CFModPath,
     [string]$RuntimeRoot = (Join-Path $env:LOCALAPPDATA "PaintZSandbox"),
     [int]$Port = 2302,
     [string]$PlayerName = "NetCop",
@@ -42,6 +43,44 @@ function Resolve-RequiredFile {
     }
 
     throw "$Description was not found. Pass its path explicitly."
+}
+
+function Resolve-RequiredModDirectory {
+    param(
+        [string]$ExplicitPath,
+        [string[]]$Candidates,
+        [string]$Description
+    )
+
+    $paths = @()
+    if ($ExplicitPath) {
+        $paths += $ExplicitPath
+    }
+    else {
+        $paths += $Candidates
+    }
+
+    foreach ($candidate in $paths) {
+        if (-not $candidate -or -not (Test-Path -LiteralPath $candidate -PathType Container)) {
+            continue
+        }
+
+        $resolved = (Resolve-Path -LiteralPath $candidate).Path
+        if (-not (Test-Path -LiteralPath (Join-Path $resolved "Addons") -PathType Container)) {
+            if ($ExplicitPath) {
+                throw "$Description at '$resolved' has no Addons directory."
+            }
+            continue
+        }
+
+        return $resolved
+    }
+
+    if ($ExplicitPath) {
+        throw "$Description was not found at '$ExplicitPath'."
+    }
+
+    throw "$Description was not found automatically. Ensure Steam Workshop item 1559212036 is installed, or pass -CFModPath explicitly."
 }
 
 function Assert-ChildPath {
@@ -114,6 +153,22 @@ if ($buildRequested) {
     $addonBuilder = Resolve-RequiredFile $AddonBuilderExe $builderCandidates "AddonBuilder.exe"
 }
 $serverRoot = Split-Path -Parent $serverExe
+
+# Workshop content normally lives under the same steamapps directory as the
+# installed game. Prefer that location, then check the sandbox's known Steam
+# library roots. -CFModPath remains available for unusual/custom layouts.
+$serverSteamApps = Split-Path -Parent (Split-Path -Parent $serverRoot)
+$cfCandidates = @(
+    (Join-Path $serverSteamApps "workshop\content\221100\1559212036")
+)
+foreach ($commonRoot in $steamRoots) {
+    $steamApps = Split-Path -Parent $commonRoot
+    $candidate = Join-Path $steamApps "workshop\content\221100\1559212036"
+    if ($cfCandidates -notcontains $candidate) {
+        $cfCandidates += $candidate
+    }
+}
+$cfModRoot = Resolve-RequiredModDirectory $CFModPath $cfCandidates "Community Framework (CF, Workshop 1559212036)"
 
 $steamProcess = Get-Process -Name "steam" -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $steamProcess) {
@@ -209,7 +264,8 @@ if ($sourcePbo.FullName -ne $runtimePbo) {
     Copy-Item -LiteralPath $sourcePbo.FullName -Destination $runtimePbo -Force
 }
 
-Write-Host "Using PaintZ PBO: $runtimePbo"
+Write-Host "Using CF mod     : $cfModRoot"
+Write-Host "Using PaintZ PBO : $runtimePbo"
 
 $resolvedAdditionalMods = @()
 foreach ($mod in $AdditionalMods) {
@@ -217,10 +273,20 @@ foreach ($mod in $AdditionalMods) {
         throw "Additional mod directory was not found: '$mod'."
     }
 
-    $resolvedAdditionalMods += (Resolve-Path -LiteralPath $mod).Path
+    $resolvedMod = (Resolve-Path -LiteralPath $mod).Path
+    if ($resolvedMod.Equals($cfModRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        Write-Warning "Ignoring CF in -AdditionalMods because the sandbox loads required CF automatically."
+        continue
+    }
+    if ($resolvedMod.Equals($PaintZModRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        Write-Warning "Ignoring @PaintZ in -AdditionalMods because the sandbox loads it automatically."
+        continue
+    }
+
+    $resolvedAdditionalMods += $resolvedMod
 }
 
-$modList = (@($PaintZModRoot) + $resolvedAdditionalMods) -join ';'
+$modList = (@($cfModRoot, $PaintZModRoot) + $resolvedAdditionalMods) -join ';'
 $serverArguments = @(
     "-server",
     "-config=$serverConfig",
