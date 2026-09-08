@@ -45,18 +45,13 @@ class PaintZ_PaintTarget
                 return false;
         }
 
-        Weapon_Base weapon;
-        if (Class.CastTo(weapon, target))
-            return weapon.PaintZ_SetPaintState(paintCode, selectionIndex);
+        // PaintZ state belongs to the shared inventory-item base, not to today's
+        // configured domains. Weapons, magazines, attachments, clothing and
+        // future ItemBase-derived domains all use exactly the same state path.
+        ItemBase item = ItemBase.Cast(target);
+        if (!item)
+            return false;
 
-        Magazine magazine;
-        if (Class.CastTo(magazine, target))
-            return magazine.PaintZ_SetPaintState(paintCode, selectionIndex);
-
-        ItemBase item;
-        if (Class.CastTo(item, target))
-            return item.PaintZ_SetPaintState(paintCode, selectionIndex);
-
-        return false;
+        return item.PaintZ_SetPaintState(paintCode, selectionIndex);
     }
 };

@@ -12,7 +12,8 @@ class CfgPatches
         requiredAddons[] =
         {
             "DZ_Data",
-            "DZ_Gear_Consumables"
+            "DZ_Gear_Consumables",
+            "JM_CF_Scripts"
         };
     };
 };
@@ -25,6 +26,7 @@ class CfgMods
         name = "PaintZ";
         author = "PaintZ contributors";
         version = "0.0.1";
+        storageVersion = 1;
         type = "mod";
         dependencies[] =
         {

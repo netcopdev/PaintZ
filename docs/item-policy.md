@@ -1,20 +1,10 @@
 # Runtime item policy
 
-PaintZ uses `$profile:PaintZ/paintz_items.json` as an administrative policy for
-new paint applications. This policy is intentionally separate from generic model
-safety: an include rule permits PaintZ to consider an item, but cannot make an
-unsafe or ambiguous hidden selection paintable.
+PaintZ uses `$profile:PaintZ/paintz_items.json` as an administrative policy for **new** paint applications. This policy is intentionally separate from generic model safety and from persisted PaintZ state.
 
-On first server startup PaintZ copies these bundled files to `$profile:PaintZ/`:
+## Core rule
 
-```text
-PaintZ/
-|-- paintz_items.json
-`-- paintz_items_README.txt
-```
-
-Neither existing file is overwritten. The JSON stays machine-oriented; operational
-instructions and examples belong in the adjacent README.
+**Domains are data, not code.** Weapons and detachable magazines are only the shipped defaults. Adding another ordinary `ItemBase`-derived inventory category should require JSON changes only.
 
 ## JSON contract
 
@@ -30,123 +20,97 @@ instructions and examples belong in the adjacent README.
   "rules": [
     {
       "action": "exclude",
-      "type": "weapon",
+      "type": "Weapon_Base",
       "class_pattern": "*crossbow*"
     }
   ]
 }
 ```
 
-- `version` is required and must be `1`.
-- `reload_seconds` is required. A positive integer schedules periodic reloads;
-  `-1` means startup-only. `0` and values below `-1` are normalized to `-1` with
-  a warning, preventing a rapid reload loop.
-- `default_action` is required and must be `allow` or `exclude`.
-- `domains` is optional for existing version-1 files. Missing or empty uses the
-  shipped weapon/detachable-magazine defaults.
-- `rules` is an array of rule objects. An absent or empty array means
-  `default_action` is the complete policy.
+- `version` must be `1`.
+- `reload_seconds`: positive integer for periodic reload, `-1` for startup-only. `0` and values below `-1` are normalized to `-1` with a warning.
+- `default_action`: `allow` or `exclude`.
+- `domains`: positive OR-list controlling whether PaintZ considers a target relevant for new painting/feedback.
+- `rules`: ordered include/exclude rules. Last matching rule wins.
 
-JSON requires double quotes around property names and string values. Comments,
-unquoted keys, trailing commas, and pseudo-objects such as
-`{ action: exclude, type: weapon }` are invalid.
+## Domains
 
-## Target domains
+Each domain may contain:
 
-Domain entries are OR. A `type` and `class_pattern` in one entry are AND. Each
-entry requires at least one field. `type` uses DayZ config inheritance;
-`class_pattern` uses the same case-insensitive `*` and `?` matcher as policy.
+- `type`: DayZ base/config class matched by inheritance;
+- `class_pattern`: case-insensitive runtime classname glob using `*` and `?`;
+- or both (AND).
 
-The default `Weapon_Base` domain uses the runtime weapon type. The default
-`Magazine_Base` domain uses DayZ's native `Magazine` runtime type and rejects
-`IsAmmoPile()`, preserving detachable-magazine scope.
+Generic script roots recognized by PaintZ include `ItemBase`, `InventoryItemBase`, `InventoryItemSuper`, `Weapon_Base` and `Magazine_Base`. `Magazine_Base` excludes ammo piles.
 
-Domains control new-paint relevance only. Policy exclusion does not remove an
-object from its domain, and neither domains nor policy are consulted when
-stripping existing PaintZ paint.
+Example expansion with no code change:
 
-Because DayZ's JSON loader does not preserve the distinction between an omitted
-array and an explicit empty array, both select the safe defaults. To intentionally
-match no objects, configure a valid nonmatching positive rule such as
-`{"class_pattern":"PaintZ_Disabled_*"}`.
+```json
+"domains": [
+  { "type": "Weapon_Base" },
+  { "type": "Magazine_Base" },
+  { "type": "SomeSuppressorBase" },
+  { "type": "SomeClothingBase" }
+]
+```
 
-## Rule evaluation and precedence
+A `class_pattern`-only domain is valid when a useful common base class is unavailable.
 
-Rules are evaluated from top to bottom. Each matching rule replaces the current
-decision, so the last matching rule wins. This permits a broad exclusion followed
-by a narrower inclusion. Duplicate and overlapping rules are legal and follow the
-same ordering. A rule that does not match the runtime item category is ignored.
+Missing or empty domains currently select the shipped weapon/magazine defaults for backward compatibility.
 
-`action` accepts `include` or `exclude`. `type` accepts `weapon`, `magazine`, or
-`all`. Category detection uses the runtime DayZ type, not classname text.
+## Rules
 
-Each rule must use exactly one selector:
+Each rule has:
 
-- `class_pattern` performs case-insensitive matching against the complete runtime
-  classname. `*` matches zero or more characters and `?` exactly one. No other
-  glob or regular-expression syntax is supported. A pattern without wildcards is
-  an exact match.
-- `inherits` performs a case-insensitive lookup in the appropriate DayZ config
-  hierarchy and matches descendants through `IsKindOf`. The named config class
-  must exist for the rule's category.
+- `action`: `include` or `exclude`;
+- optional `type`: `all`, any valid DayZ base/config class, or legacy `weapon` / `magazine` aliases;
+- exactly one selector: `class_pattern` or `inherits`.
 
-For example:
+Examples:
 
 ```json
 {
-  "version": 1,
-  "reload_seconds": 60,
-  "default_action": "allow",
-  "rules": [
-    {
-      "action": "exclude",
-      "type": "weapon",
-      "class_pattern": "TTC_*"
-    },
-    {
-      "action": "include",
-      "type": "weapon",
-      "class_pattern": "TTC_AK*"
-    },
-    {
-      "action": "exclude",
-      "type": "magazine",
-      "inherits": "Example_MagazineBase"
-    }
-  ]
+  "action": "exclude",
+  "type": "Weapon_Base",
+  "class_pattern": "TTC_*"
 }
 ```
 
-## Reload and failure behavior
+```json
+{
+  "action": "exclude",
+  "type": "SomeClothingBase",
+  "inherits": "SomeJacketBase"
+}
+```
 
-PaintZ parses and validates a detached candidate configuration. Only a completely
-valid candidate replaces the active policy and its decision cache. Invalid JSON,
-an unsupported version, an invalid enum value, a null/non-object rule, an invalid
-selector, or an unknown inheritance class rejects the whole candidate.
+```json
+{
+  "action": "exclude",
+  "class_pattern": "BrokenPaint_*"
+}
+```
 
-A failed periodic reload retains the last-known-good policy and uses its reload
-interval for the next attempt. If startup cannot load any valid policy, PaintZ
-fails closed and denies new paint applications. Rejection logs point operators to
-`$profile:PaintZ/paintz_items_README.txt`.
+The final example applies to every configured target because omitted `type` is normalized to `all`.
 
-## Existing items and client action visibility
+## Separation from persistence
 
-Policy changes affect new painting and repainting only. Excluding an already-painted
-item does not alter its texture or paint state, and Strip Paint remains available.
-Allowing the class later permits painting again.
+Domains and rules decide whether a **new** paint application may occur. They do not define which categories can carry PaintZ state.
 
-The server remains authoritative and rechecks policy when the action completes.
-The active policy is also synchronized to clients so excluded targets do not offer
-a Paint action in the interaction menu. A client that has not yet received a valid
-policy fails closed for action visibility.
+If an item was painted while eligible and later its domain/rule changes:
+
+- existing paint remains;
+- persistence restoration remains active;
+- Strip Paint remains available;
+- only new/replacement painting follows the current policy.
+
+## Reload behavior
+
+PaintZ validates a detached candidate config and swaps it atomically only after successful validation. A failed periodic reload retains the previous valid policy. If no valid startup policy exists, PaintZ fails closed for new painting.
 
 ## Troubleshooting
 
-- If a config is rejected, find the first `Config rejected` line in the server log;
-  rule indices are zero-based.
-- Validate the file with a strict JSON parser. A `.json` extension does not make
-  JavaScript-style object notation valid JSON.
-- Put a narrow exception after a broad rule because the last match wins.
-- Use `type: "all"` deliberately; category-specific rules are easier to audit.
-- An included item can still be unsupported when its runtime model exposes no safe
-  paintable hidden selection. That is expected and cannot be bypassed by policy.
+- Use strict JSON; comments and trailing commas are invalid.
+- Put a narrower exception after a broad rule because the last match wins.
+- `include` never bypasses hidden-selection safety.
+- An item can be domain-relevant but technically unsupported if PaintZ cannot infer a safe body selection.

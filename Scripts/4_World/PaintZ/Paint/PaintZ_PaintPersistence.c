@@ -1,82 +1,105 @@
+#ifdef DIAG_DEVELOPER
 enum PaintZ_PersistenceReadResult
 {
     PZ_PERSISTENCE_LEGACY,
     PZ_PERSISTENCE_VALID,
     PZ_PERSISTENCE_INVALID
 }
+#endif
 
 class PaintZ_PaintPersistence
 {
-    protected static const string MARKER = "PaintZ.PaintState";
-    protected static const int VERSION = 1;
+    protected static const string STORAGE_KEY = "PaintZ";
+    protected static const int STORAGE_VERSION = 1;
 
+    static void Save(CF_ModStorageMap storage, EntityAI target, string paintCode)
+    {
+        // Absence of a PaintZ ModStorage entry is the canonical unpainted state.
+        if (paintCode == PaintZ_PaintConstants.PAINT_NONE)
+            return;
+
+        CF_ModStorage ctx = storage[STORAGE_KEY];
+        if (!ctx)
+        {
+            Warn(target, "CF ModStorage context is unavailable while saving");
+            return;
+        }
+
+        ctx.Write(paintCode);
+    }
+
+    static bool Load(CF_ModStorageMap storage, EntityAI target, out string paintCode)
+    {
+        paintCode = PaintZ_PaintConstants.PAINT_NONE;
+
+        CF_ModStorage ctx = storage[STORAGE_KEY];
+        if (!ctx)
+            return true;
+
+        if (ctx.GetVersion() != STORAGE_VERSION)
+        {
+            Warn(target, "unsupported storage version=" + ctx.GetVersion());
+            return false;
+        }
+
+        if (!ctx.Read(paintCode))
+        {
+            Warn(target, "malformed CF ModStorage payload: finish ID could not be read");
+            paintCode = PaintZ_PaintConstants.PAINT_NONE;
+            return false;
+        }
+
+        if (paintCode == "" || paintCode == PaintZ_PaintConstants.PAINT_NONE)
+        {
+            Warn(target, "malformed CF ModStorage payload: invalid finish ID");
+            paintCode = PaintZ_PaintConstants.PAINT_NONE;
+            return false;
+        }
+
+        return true;
+    }
+
+#ifdef DIAG_DEVELOPER
+    // Sandbox codec adapter only. Production persistence never uses the flat
+    // native stream; these overloads keep the existing isolated smoke test able
+    // to test marker/version/unknown-ID handling without changing the CF design.
     static void Save(ParamsWriteContext ctx, string paintCode)
     {
         TStringArray payload = new TStringArray();
         if (paintCode != PaintZ_PaintConstants.PAINT_NONE)
             payload.Insert(paintCode);
 
-        ctx.Write(MARKER);
-        ctx.Write(VERSION);
+        ctx.Write("PaintZ.TestPaintState");
+        ctx.Write(STORAGE_VERSION);
         ctx.Write(payload);
     }
 
     static PaintZ_PersistenceReadResult Load(ParamsReadContext ctx, EntityAI target, out string paintCode)
     {
         paintCode = PaintZ_PaintConstants.PAINT_NONE;
-
-        // Entity streams with no remaining value are normal legacy saves from
-        // before PaintZ persistence existed.
         if (!ctx.CanRead())
             return PaintZ_PersistenceReadResult.PZ_PERSISTENCE_LEGACY;
 
         string marker;
-        // CanRead may still report true for an empty ScriptReadWriteContext.
-        // A failed first read is therefore also the normal legacy case. Once
-        // the marker has been read, missing later values are malformed.
         if (!ctx.Read(marker))
             return PaintZ_PersistenceReadResult.PZ_PERSISTENCE_LEGACY;
-
-        if (marker != MARKER)
-        {
-            Warn(target, "malformed payload: unexpected marker");
+        if (marker != "PaintZ.TestPaintState")
             return PaintZ_PersistenceReadResult.PZ_PERSISTENCE_INVALID;
-        }
 
-        int persistenceVersion;
-        if (!ctx.Read(persistenceVersion))
-        {
-            Warn(target, "malformed payload: version could not be read");
-            return PaintZ_PersistenceReadResult.PZ_PERSISTENCE_INVALID;
-        }
-
+        int version;
         TStringArray payload = new TStringArray();
-        if (!ctx.Read(payload))
-        {
-            Warn(target, "malformed payload: state could not be read");
+        if (!ctx.Read(version) || !ctx.Read(payload) || version != STORAGE_VERSION)
             return PaintZ_PersistenceReadResult.PZ_PERSISTENCE_INVALID;
-        }
-
-        // The payload is one serializer value. Unsupported future versions can
-        // therefore be consumed without leaving the entity stream misaligned.
-        if (persistenceVersion != VERSION)
-        {
-            Warn(target, "unsupported persistence version=" + persistenceVersion);
-            return PaintZ_PersistenceReadResult.PZ_PERSISTENCE_INVALID;
-        }
 
         if (payload.Count() == 0)
             return PaintZ_PersistenceReadResult.PZ_PERSISTENCE_VALID;
-
-        if (payload.Count() != 1 || payload.Get(0) == PaintZ_PaintConstants.PAINT_NONE)
-        {
-            Warn(target, "malformed version 1 state");
+        if (payload.Count() != 1)
             return PaintZ_PersistenceReadResult.PZ_PERSISTENCE_INVALID;
-        }
 
         paintCode = payload.Get(0);
         return PaintZ_PersistenceReadResult.PZ_PERSISTENCE_VALID;
     }
+#endif
 
     protected static void Warn(EntityAI target, string reason)
     {
