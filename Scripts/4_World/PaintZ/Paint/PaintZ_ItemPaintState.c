@@ -3,23 +3,46 @@ modded class ItemBase
     protected string m_PaintZPaintCode = PaintZ_PaintConstants.PAINT_NONE;
     protected int m_PaintZPaintSelection = -1;
     protected int m_PaintZPaintCodeHash;
+    protected int m_PaintZPatternScalePercent = 100;
     protected bool m_PaintZRestoreQueued;
 
     void ItemBase()
     {
         RegisterNetSyncVariableInt("m_PaintZPaintCodeHash", int.MIN, int.MAX);
         RegisterNetSyncVariableInt("m_PaintZPaintSelection", -1, 255);
+
+        // Transient visual state only. CF persistence deliberately stores the
+        // finish ID and derives this scale again on repaint/post-load restore.
+        RegisterNetSyncVariableInt("m_PaintZPatternScalePercent", 1, 1000);
     }
 
     bool PaintZ_SetPaintState(string paintCode, int selectionIndex)
     {
-        if (!PaintZ_PaintVisuals.Apply(this, paintCode, selectionIndex))
+        int scalePercent = 100;
+        float maxDimensionMeters = -1.0;
+
+        if (paintCode != PaintZ_PaintConstants.PAINT_NONE)
+            scalePercent = PaintZ_PatternScaling.ResolveScalePercent(this, paintCode, maxDimensionMeters);
+
+        if (!PaintZ_PaintVisuals.Apply(this, paintCode, selectionIndex, scalePercent))
             return false;
 
         m_PaintZPaintCode = paintCode;
         m_PaintZPaintSelection = selectionIndex;
         m_PaintZPaintCodeHash = PaintZ_PaintStateRuntime.GetNetworkHash(paintCode);
+        m_PaintZPatternScalePercent = scalePercent;
         SetSynchDirty();
+
+        if (PaintZ_PaintCatalog.IsPatternPaint(paintCode))
+        {
+            PaintZ_PaintLog.Info(string.Format(
+                "pattern_scale target=%1 max_dimension_m=%2 scale=%3",
+                GetType(),
+                maxDimensionMeters,
+                scalePercent / 100.0
+            ));
+        }
+
         return true;
     }
 
@@ -33,11 +56,17 @@ modded class ItemBase
         return m_PaintZPaintSelection;
     }
 
+    int PaintZ_GetPatternScalePercent()
+    {
+        return m_PaintZPatternScalePercent;
+    }
+
     void PaintZ_LoadPaintState(string paintCode)
     {
         m_PaintZPaintCode = paintCode;
         m_PaintZPaintSelection = -1;
         m_PaintZPaintCodeHash = PaintZ_PaintStateRuntime.GetNetworkHash(paintCode);
+        m_PaintZPatternScalePercent = 100;
     }
 
     void PaintZ_QueueLoadedPaintRestore()
@@ -60,7 +89,13 @@ modded class ItemBase
 
     void PaintZ_RestoreLoadedPaint()
     {
-        PaintZ_PaintStateRuntime.RestorePersistedVisual(this, m_PaintZPaintCode, m_PaintZPaintSelection);
+        PaintZ_PaintStateRuntime.RestorePersistedVisual(
+            this,
+            m_PaintZPaintCode,
+            m_PaintZPaintSelection,
+            m_PaintZPatternScalePercent
+        );
+
         m_PaintZPaintCodeHash = PaintZ_PaintStateRuntime.GetNetworkHash(m_PaintZPaintCode);
         if (GetGame().IsServer())
             SetSynchDirty();
@@ -93,6 +128,11 @@ modded class ItemBase
             return;
 
         m_PaintZPaintCode = PaintZ_PaintStateRuntime.GetNetworkPaintCode(m_PaintZPaintCodeHash);
-        PaintZ_PaintVisuals.Apply(this, m_PaintZPaintCode, m_PaintZPaintSelection);
+        PaintZ_PaintVisuals.Apply(
+            this,
+            m_PaintZPaintCode,
+            m_PaintZPaintSelection,
+            m_PaintZPatternScalePercent
+        );
     }
 };

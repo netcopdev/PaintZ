@@ -20,6 +20,7 @@ catalog = [
         "code": "PZ-C-WDL",
         "texture_stem": "pz_c_wdl",
         "dayz_class": "PaintZ_SprayCan_Woodland",
+        "is_pattern": True,
     },
     {
         "name": "Preview Only",
@@ -29,6 +30,7 @@ catalog = [
         "code": "PZ-S-PRV",
         "texture_stem": "pz_s_prv",
         "dayz_class": None,
+        "is_pattern": False,
     },
 ]
 settings = {
@@ -38,7 +40,7 @@ settings = {
 
 with TemporaryDirectory() as directory:
     output = Path(directory)
-    emit_dayz(catalog, settings, output)
+    emit_dayz(catalog, settings, output, [0.5, 1.0, 2.0])
     config = (output / "PaintZ_Paints.generated.inc").read_text(encoding="utf-8")
     types = (output / "types.generated.xml").read_text(encoding="utf-8")
     units = (output / "PaintZ_Units.generated.inc").read_text(encoding="utf-8")
@@ -58,6 +60,11 @@ assert "sprayCan.AddAction(ActionPaintZPaint_S_PRV);" in script
 assert 'return "Paint Woodland";' in script
 assert "static bool HasPaintCode(string paintCode)" in script
 assert 'if (paintCode == "PZ-C-WDL")' in script
+assert "static bool IsPatternPaint(string paintCode)" in script
+assert "static bool IsSupportedPatternScale(int scalePercent)" in script
+assert "if (scalePercent == 50)" in script
+assert "if (scalePercent == 100)" in script
+assert "if (scalePercent == 200)" in script
 assert "static string GetPaintCodeByNetworkHash(int paintHash)" in script
 assert 'if ("PZ-C-WDL".Hash() == paintHash)' in script
 assert "return ActionPaintZPaint_S_PRV;" in script
@@ -72,7 +79,12 @@ duplicate_class_catalog[0]["dayz_class"] = "PaintZ_Duplicate"
 duplicate_class_catalog[1]["dayz_class"] = "PaintZ_Duplicate"
 with TemporaryDirectory() as directory:
     try:
-        emit_dayz(duplicate_class_catalog, settings, Path(directory))
+        emit_dayz(
+            duplicate_class_catalog,
+            settings,
+            Path(directory),
+            [1.0],
+        )
         raise AssertionError("duplicate generated DayZ classnames must be rejected")
     except ValueError as error:
         assert "Duplicate generated DayZ classname" in str(error)
@@ -93,12 +105,18 @@ for paint in manifest["paints"]:
             "code": code,
             "texture_stem": code_to_slug(code),
             "dayz_class": paint.get("dayz_class"),
+            "is_pattern": bool(paint.get("pattern")),
         }
     )
 
 with TemporaryDirectory() as directory:
     output = Path(directory)
-    emit_dayz(actual_catalog, manifest["dayz"], output)
+    emit_dayz(
+        actual_catalog,
+        manifest["dayz"],
+        output,
+        manifest.get("generator", {}).get("pattern_scales", [1.0]),
+    )
     expected = (output / "PaintZ_Paints.generated.inc").read_text(encoding="utf-8").strip()
     expected_types = (output / "types.generated.xml").read_text(encoding="utf-8").strip()
     expected_units = (output / "PaintZ_Units.generated.inc").read_text(encoding="utf-8").strip()

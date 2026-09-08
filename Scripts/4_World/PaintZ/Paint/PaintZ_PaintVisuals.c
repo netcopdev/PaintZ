@@ -5,14 +5,15 @@ class PaintZ_PaintVisuals
         if (!target || selectionIndex < 0)
             return false;
 
-        // Read the current texture, not the config defaults.
+        // Read the current texture, not the config defaults. Scaled variants
+        // retain the same PaintZ surface-root marker.
         string texture = target.GetObjectTexture(selectionIndex);
         texture.ToLower();
         texture.Replace("/", "\\");
         return texture.IndexOf("paintz\\data\\surfaces\\pz_") == 0;
     }
 
-    static bool Apply(EntityAI target, string paintCode, int selectionIndex)
+    static bool Apply(EntityAI target, string paintCode, int selectionIndex, int scalePercent = 100)
     {
         if (!target || selectionIndex < 0)
             return false;
@@ -24,7 +25,7 @@ class PaintZ_PaintVisuals
             if (!PaintZ_PaintCatalog.HasPaintCode(paintCode))
                 return false;
 
-            target.SetObjectTexture(selectionIndex, PaintZ_PaintConstants.GetSurfaceTexture(paintCode));
+            target.SetObjectTexture(selectionIndex, PaintZ_PaintConstants.GetSurfaceTexture(paintCode, scalePercent));
         }
 
         return true;
@@ -49,4 +50,3 @@ class PaintZ_PaintVisuals
         target.SetObjectTexture(selectionIndex, configuredTexture);
     }
 };
-

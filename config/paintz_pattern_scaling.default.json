@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "reload_seconds": 10,
+  "enabled": true,
+  "default_scale": 1.0,
+  "ranges": []
+}

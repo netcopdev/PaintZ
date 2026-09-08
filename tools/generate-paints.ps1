@@ -62,8 +62,12 @@ foreach ($paint in $exported) {
     $pngName = $paint.texture_stem + "_co.png"
     $source = Join-Path $generatorRoot "generated\labels\$pngName"
     Copy-Item -LiteralPath $source -Destination (Join-Path $canOutput $pngName) -Force
-    $surfaceSource = Join-Path $generatorRoot "generated\surfaces\$pngName"
-    Copy-Item -LiteralPath $surfaceSource -Destination (Join-Path $surfaceOutput $pngName) -Force
+
+    foreach ($variant in @($paint.surface_variants)) {
+        $surfaceName = $variant.texture_stem + "_co.png"
+        $surfaceSource = Join-Path $generatorRoot "generated\surfaces\$surfaceName"
+        Copy-Item -LiteralPath $surfaceSource -Destination (Join-Path $surfaceOutput $surfaceName) -Force
+    }
 }
 
 if (-not $ImageToPAA) {
@@ -94,12 +98,20 @@ foreach ($paint in $exported) {
         throw "ImageToPAA failed for '$png'."
     }
 
-    $surfacePng = Join-Path $surfaceOutput ($stem + ".png")
-    $surfacePaa = Join-Path $surfaceOutput ($stem + ".paa")
-    & $ImageToPAA $surfacePng $surfacePaa
-    if ($LASTEXITCODE -ne 0) {
-        throw "ImageToPAA failed for '$surfacePng'."
+    foreach ($variant in @($paint.surface_variants)) {
+        $surfaceStem = $variant.texture_stem + "_co"
+        $surfacePng = Join-Path $surfaceOutput ($surfaceStem + ".png")
+        $surfacePaa = Join-Path $surfaceOutput ($surfaceStem + ".paa")
+        & $ImageToPAA $surfacePng $surfacePaa
+        if ($LASTEXITCODE -ne 0) {
+            throw "ImageToPAA failed for '$surfacePng'."
+        }
     }
 }
 
-Write-Host "paintzgen exported $($exported.Count) can textures to $canOutput and finish-rendered surface textures to $surfaceOutput"
+$surfaceCount = 0
+foreach ($paint in $exported) {
+    $surfaceCount += @($paint.surface_variants).Count
+}
+
+Write-Host "paintzgen exported $($exported.Count) can textures and $surfaceCount surface textures"

@@ -25,6 +25,8 @@ class PaintZ_PaintPersistence
             return;
         }
 
+        // The finish ID is the entire persistent PaintZ state. Pattern scale,
+        // derived texture path and selection index are intentionally transient.
         ctx.Write(paintCode);
     }
 
@@ -132,9 +134,11 @@ class PaintZ_PaintStateRuntime
         return PaintZ_PaintCatalog.GetPaintCodeByNetworkHash(paintHash);
     }
 
-    static bool RestorePersistedVisual(EntityAI target, string paintCode, out int selectionIndex)
+    static bool RestorePersistedVisual(EntityAI target, string paintCode, out int selectionIndex, out int scalePercent)
     {
         selectionIndex = -1;
+        scalePercent = 100;
+
         if (!target || paintCode == PaintZ_PaintConstants.PAINT_NONE)
             return true;
 
@@ -151,11 +155,15 @@ class PaintZ_PaintStateRuntime
             return false;
         }
 
+        float maxDimensionMeters;
+        scalePercent = PaintZ_PatternScaling.ResolveScalePercent(target, paintCode, maxDimensionMeters);
+
         selectionIndex = inspection.m_SelectionIndex;
-        if (!PaintZ_PaintVisuals.Apply(target, paintCode, selectionIndex))
+        if (!PaintZ_PaintVisuals.Apply(target, paintCode, selectionIndex, scalePercent))
         {
             PaintZ_PaintLog.Warning("persistence target=" + target.GetType() + " finish=" + paintCode + " visual application failed");
             selectionIndex = -1;
+            scalePercent = 100;
             return false;
         }
 
