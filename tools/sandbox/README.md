@@ -65,8 +65,14 @@ Run the PowerShell launcher directly for options:
 pwsh -File .\tools\sandbox\Start-PaintZSandbox.ps1
 pwsh -File .\tools\sandbox\Start-PaintZSandbox.ps1 -Build
 pwsh -File .\tools\sandbox\Start-PaintZSandbox.ps1 -Generate
+pwsh -File .\tools\sandbox\Start-PaintZSandbox.ps1 -RunSmokeTests -ServerOnly
 pwsh -File .\tools\sandbox\Start-PaintZSandbox.ps1 -ServerOnly
 ```
+
+`-RunSmokeTests` appends the diagnostic smoke suite to the generated mission.
+Server startup runs catalogue, wildcard, ordered-rule, type-filter, inheritance,
+and existing-paint/stripping policy checks. When a player joins, the suite also
+runs completion-consumption and policy-reload race checks.
 
 `-SkipBuild` remains accepted for compatibility, but is deprecated because skipping
 the build is now the default.

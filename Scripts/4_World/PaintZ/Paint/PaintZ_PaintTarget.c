@@ -21,6 +21,14 @@ class PaintZ_PaintTarget
         if (!target)
             return false;
 
+        // Eligibility controls new applications only. PAINT_NONE is stripping
+        // and deliberately bypasses the runtime allow/exclude policy.
+        if (paintCode != PaintZ_PaintConstants.PAINT_NONE)
+        {
+            if (target.IsRuined() || !PaintZ_ItemPolicy.IsPaintApplicationAllowed(target))
+                return false;
+        }
+
         Weapon_Base weapon;
         if (Class.CastTo(weapon, target))
         {

@@ -27,6 +27,17 @@ For server-only finish, stripper, and sandbox test results, see `FINISH_VALIDATI
 - [ ] Test at least one third-party weapon unknown to PaintZ source code.
 - [ ] If that third-party model has a suitable hidden selection, PaintZ paints it without a compatibility patch.
 
+## Runtime item-policy checks
+
+- [ ] A missing `$profile:PaintZ/paintz_items.json` is created from the bundled default; an existing file is not overwritten.
+- [ ] Ordered `exclude TTC_*` then `include TTC_AK*` rules produce last-match-wins behavior.
+- [ ] `*` and `?` are case-insensitive; patterns without wildcards match exact classnames only.
+- [ ] Weapon-only rules do not affect magazines, and magazine-only rules do not affect weapons.
+- [ ] `reload_seconds = -1` schedules no reload; a positive value reloads at approximately that interval.
+- [ ] Malformed JSON or an invalid rule retains the previous valid policy during runtime reload.
+- [ ] Exclusion during a running paint action prevents completion without consuming paint.
+- [ ] Excluding an already-painted item leaves its finish unchanged and still allows Strip Paint.
+
 ## Not currently included
 
 - persistence across server restart;

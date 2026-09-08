@@ -12,6 +12,8 @@ class PaintZ_FinishSmokeTest
 
     static void Run()
     {
+        CheckWildcards();
+        CheckPolicyEvaluation();
         Check(!PaintZ_PaintVisuals.HasPaint(null, 0), "null target");
         array<string> canTypes;
         array<string> paintCodes;
@@ -101,6 +103,146 @@ class PaintZ_FinishSmokeTest
         GetGame().ObjectDelete(item);
         GetGame().ObjectDelete(stripper);
         GetGame().ObjectDelete(paintCan);
+        CheckPolicyActionRace(player);
+    }
+
+    static void CheckWildcards()
+    {
+        Check(PaintZ_ItemPolicy.GlobMatches("TTC_AK*", "TTC_AK74"), "glob star matches TTC_AK74");
+        Check(PaintZ_ItemPolicy.GlobMatches("TTC_AK*", "TTC_AKM_Black"), "glob star matches TTC_AKM_Black");
+        Check(!PaintZ_ItemPolicy.GlobMatches("TTC_AK*", "ABC_AK74"), "glob star rejects different prefix");
+        Check(PaintZ_ItemPolicy.GlobMatches("*_AKM", "TTC_AKM"), "glob suffix matches");
+        Check(PaintZ_ItemPolicy.GlobMatches("Morty_?K*", "Morty_AK74"), "glob question mark matches one character");
+        Check(!PaintZ_ItemPolicy.GlobMatches("Morty_?K*", "Morty_AAK74"), "glob question mark rejects two characters");
+        Check(PaintZ_ItemPolicy.GlobMatches("m4a1", "M4A1"), "plain classname is case-insensitive exact match");
+        Check(!PaintZ_ItemPolicy.GlobMatches("m4a1", "M4A1_Black"), "plain classname is not substring match");
+    }
+
+    static void CheckPolicyEvaluation()
+    {
+        PaintZ_ItemPolicyConfig saved = PaintZ_ItemPolicy.GetActiveConfigForTests();
+        EntityAI weapon = EntityAI.Cast(GetGame().CreateObjectEx("M4A1", "4580 0 10200", ECE_PLACE_ON_SURFACE));
+        EntityAI magazine = EntityAI.Cast(GetGame().CreateObjectEx("Mag_CMAG_30Rnd_Black", "4580 0 10200", ECE_PLACE_ON_SURFACE));
+        Check(weapon && magazine, "policy fixtures spawned");
+        if (!weapon || !magazine)
+            return;
+
+        PaintZ_ItemPolicyConfig ordered = MakePolicy("allow");
+        ordered.rules.Insert(MakePatternRule("exclude", "weapon", "M4*"));
+        ordered.rules.Insert(MakePatternRule("include", "weapon", "M4A1"));
+        Check(PaintZ_ItemPolicy.InstallConfigForTests(ordered), "ordered policy validates");
+        Check(PaintZ_ItemPolicy.IsPaintApplicationAllowed(weapon), "later narrow include wins");
+        Check(PaintZ_ItemPolicy.IsPaintApplicationAllowed(magazine), "weapon rule does not affect magazine");
+
+        PaintZ_ItemPolicyConfig invalid = MakePolicy("allow");
+        invalid.rules.Insert(MakePatternRule("ban", "weapon", "*"));
+        Check(!PaintZ_ItemPolicy.InstallConfigForTests(invalid), "invalid rule rejects candidate policy");
+        Check(PaintZ_ItemPolicy.IsPaintApplicationAllowed(weapon), "invalid candidate retains previous policy");
+
+        PaintZ_ItemPolicyConfig unsafeReload = MakePolicy("allow");
+        unsafeReload.reload_seconds = 0;
+        Check(PaintZ_ItemPolicy.InstallConfigForTests(unsafeReload), "zero reload interval is safely normalized");
+        Check(PaintZ_ItemPolicy.GetReloadSeconds() == -1, "zero reload interval becomes startup-only");
+        PaintZ_ItemPolicy.InstallConfigForTests(ordered);
+
+        PaintZ_ItemPolicyConfig excluded = MakePolicy("allow");
+        excluded.rules.Insert(MakePatternRule("exclude", "weapon", "M4*"));
+        Check(PaintZ_ItemPolicy.InstallConfigForTests(excluded), "exclude policy validates");
+        Check(!PaintZ_ItemPolicy.IsPaintApplicationAllowed(weapon), "matching broad rule excludes weapon");
+        Check(PaintZ_ItemPolicy.IsPaintApplicationAllowed(magazine), "type filter preserves magazine");
+
+        PaintZ_ItemPolicyConfig magazineExcluded = MakePolicy("allow");
+        magazineExcluded.rules.Insert(MakePatternRule("exclude", "magazine", "Mag_CMAG_30Rnd_Black"));
+        Check(PaintZ_ItemPolicy.InstallConfigForTests(magazineExcluded), "exact magazine policy validates");
+        Check(PaintZ_ItemPolicy.IsPaintApplicationAllowed(weapon), "magazine rule does not affect weapon");
+        Check(!PaintZ_ItemPolicy.IsPaintApplicationAllowed(magazine), "exact magazine classname excludes");
+
+        PaintZ_ItemPolicyConfig inheritance = MakePolicy("allow");
+        inheritance.rules.Insert(MakeInheritanceRule("exclude", "weapon", "Rifle_Base"));
+        Check(PaintZ_ItemPolicy.InstallConfigForTests(inheritance), "inheritance policy validates");
+        Check(!PaintZ_ItemPolicy.IsPaintApplicationAllowed(weapon), "runtime inheritance selector excludes descendant");
+
+        PaintZ_ItemPolicyConfig allowed = MakePolicy("allow");
+        PaintZ_ItemPolicy.InstallConfigForTests(allowed);
+        PaintZ_PaintInspectionResult inspection = PaintZ_PaintInspector.Inspect(weapon);
+        array<string> paintCodes;
+        PaintZ_PaintCatalog.GetPaintCodes(paintCodes);
+        if (inspection.m_Paintable && paintCodes.Count() > 0)
+        {
+            Check(PaintZ_PaintTarget.SetPaint(weapon, paintCodes[0], inspection.m_SelectionIndex), "paint applied before exclusion");
+            PaintZ_ItemPolicy.InstallConfigForTests(excluded);
+            Check(PaintZ_PaintVisuals.HasPaint(weapon, inspection.m_SelectionIndex), "exclusion keeps existing paint");
+            Check(PaintZ_PaintTarget.SetPaint(weapon, PaintZ_PaintConstants.PAINT_NONE, inspection.m_SelectionIndex), "stripping bypasses exclusion policy");
+            Check(!PaintZ_PaintVisuals.HasPaint(weapon, inspection.m_SelectionIndex), "excluded painted item strips normally");
+        }
+
+        PaintZ_ItemPolicy.InstallConfigForTests(saved);
+        GetGame().ObjectDelete(weapon);
+        GetGame().ObjectDelete(magazine);
+    }
+
+    static void CheckPolicyActionRace(PlayerBase player)
+    {
+        if (!player)
+            return;
+
+        PaintZ_ItemPolicyConfig saved = PaintZ_ItemPolicy.GetActiveConfigForTests();
+        PaintZ_ItemPolicy.InstallConfigForTests(MakePolicy("allow"));
+        EntityAI item = EntityAI.Cast(GetGame().CreateObjectEx("M4A1", player.GetPosition(), ECE_PLACE_ON_SURFACE));
+        ItemBase can = ItemBase.Cast(GetGame().CreateObjectEx("PaintZ_SprayCan_S_ODG", player.GetPosition(), ECE_PLACE_ON_SURFACE));
+        Check(item && can, "policy race fixtures spawned");
+        if (!item || !can)
+            return;
+
+        can.SetQuantity(can.GetQuantityMax());
+        float quantity = can.GetQuantity();
+        ActionTarget target = new ActionTarget(item, null, -1, item.GetPosition(), 0);
+        ActionPaintZPaint_S_ODG action = new ActionPaintZPaint_S_ODG;
+        Check(action.ActionCondition(player, target, can), "paint action starts while policy allows");
+
+        PaintZ_ItemPolicyConfig excluded = MakePolicy("allow");
+        excluded.rules.Insert(MakePatternRule("exclude", "weapon", "M4*"));
+        PaintZ_ItemPolicy.InstallConfigForTests(excluded);
+
+        ActionData data = new ActionData;
+        data.m_Player = player;
+        data.m_Target = target;
+        data.m_MainItem = can;
+        action.OnFinishProgressServer(data);
+        int selection = PaintZ_PaintInspector.Inspect(item).m_SelectionIndex;
+        Check(!PaintZ_PaintVisuals.HasPaint(item, selection), "new policy blocks completion after action start");
+        Check(can.GetQuantity() == quantity, "policy-rejected completion consumes no paint");
+
+        PaintZ_ItemPolicy.InstallConfigForTests(saved);
+        GetGame().ObjectDelete(item);
+        GetGame().ObjectDelete(can);
+    }
+
+    static PaintZ_ItemPolicyConfig MakePolicy(string defaultAction)
+    {
+        PaintZ_ItemPolicyConfig config = new PaintZ_ItemPolicyConfig();
+        config.version = 1;
+        config.reload_seconds = -1;
+        config.default_action = defaultAction;
+        return config;
+    }
+
+    static PaintZ_ItemPolicyRule MakePatternRule(string action, string type, string pattern)
+    {
+        PaintZ_ItemPolicyRule rule = new PaintZ_ItemPolicyRule();
+        rule.action = action;
+        rule.type = type;
+        rule.class_pattern = pattern;
+        return rule;
+    }
+
+    static PaintZ_ItemPolicyRule MakeInheritanceRule(string action, string type, string inheritedClass)
+    {
+        PaintZ_ItemPolicyRule rule = new PaintZ_ItemPolicyRule();
+        rule.action = action;
+        rule.type = type;
+        rule.inherits = inheritedClass;
+        return rule;
     }
 
     static void CheckRejected(string type)

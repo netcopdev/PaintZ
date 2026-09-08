@@ -12,6 +12,7 @@ param(
     [Alias("GeneratePaints")]
     [switch]$Generate,
     [switch]$SkipBuild,
+    [switch]$RunSmokeTests,
     [switch]$ServerOnly,
     [switch]$LeaveServerRunning
 )
@@ -149,6 +150,16 @@ $undergroundTemplatePath = Join-Path $PSScriptRoot "templates\cfgundergroundtrig
 
 $missionText = Get-Content -LiteralPath $missionTemplatePath -Raw
 $missionText = $missionText.Replace("__PAINTZ_THIRD_PARTY_WEAPON_CLASS__", $ThirdPartyWeaponClass)
+if ($RunSmokeTests) {
+    $smokeTestPath = Join-Path $PSScriptRoot "PaintZ_FinishSmokeTest.c"
+    $missionText = $missionText.Replace("__PAINTZ_POLICY_SMOKE_TEST__", "PaintZ_FinishSmokeTest.Run();")
+    $missionText = $missionText.Replace("__PAINTZ_PLAYER_SMOKE_TEST__", "PaintZ_FinishSmokeTest.CheckStripCompletion(player);")
+    $missionText += "`r`n" + (Get-Content -LiteralPath $smokeTestPath -Raw)
+}
+else {
+    $missionText = $missionText.Replace("__PAINTZ_POLICY_SMOKE_TEST__", "")
+    $missionText = $missionText.Replace("__PAINTZ_PLAYER_SMOKE_TEST__", "")
+}
 Set-Content -LiteralPath $missionInit -Value $missionText -Encoding UTF8
 Copy-Item -LiteralPath $effectAreaTemplatePath -Destination (Join-Path $missionDirectory "cfgeffectarea.json") -Force
 Copy-Item -LiteralPath $undergroundTemplatePath -Destination (Join-Path $missionDirectory "cfgundergroundtriggers.json") -Force

@@ -28,7 +28,8 @@ class CfgMods
         type = "mod";
         dependencies[] =
         {
-            "World"
+            "World",
+            "Mission"
         };
 
         class defs
@@ -40,6 +41,15 @@ class CfgMods
                 {
                     "PaintZ/Scripts/4_World",
                     "PaintZ/tools/paintzgen/generated/dayz"
+                };
+            };
+
+            class missionScriptModule
+            {
+                value = "";
+                files[] =
+                {
+                    "PaintZ/Scripts/5_Mission"
                 };
             };
         };
