@@ -39,22 +39,6 @@ are not implemented. See `docs/PAINT_COATS_FEASIBILITY.md` for the rendering lim
 5. A safe allowed target shows `Paint Woodland`; failures show a specific reason.
 6. Painting calls `SetObjectTexture()` on the existing object. No item replacement and no classname change.
 
-## Start with Codex
-
-Open the extracted folder as the repository/project and tell Codex to read `AGENTS.md` first. A ready-to-use initial task is in:
-
-`docs/CODEX_START_PROMPT.md`
-
-Recommended Git initialization:
-
-```powershell
-git init -b main
-git add .
-git commit -m "Initial PaintZ dynamic paint mod"
-```
-
-Then create/push the remote as usual.
-
 ## Project layout
 
 - `config.cpp` — mod registration plus generated paint declarations and the separate stripper can.
