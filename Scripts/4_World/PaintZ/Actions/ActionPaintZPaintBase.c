@@ -32,19 +32,12 @@ class ActionPaintZPaintBase : ActionContinuousBase
     override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
     {
         PaintZ_SprayCanBase spray = PaintZ_SprayCanBase.Cast(item);
-        if (!spray || spray.GetPaintZPaintCode() != GetPaintCode() || !target || spray.IsRuined())
+        if (!spray || spray.GetPaintZPaintCode() != GetPaintCode() || !target)
             return false;
 
-        if (spray.HasQuantity() && spray.GetQuantity() < PaintZ_PaintConstants.SPRAY_COST)
-            return false;
-
-        EntityAI entity = PaintZ_PaintTarget.ResolveActionTarget(target);
-        TraceCondition(item, target, entity);
-        if (!entity || entity.IsRuined() || !PaintZ_ItemPolicy.IsPaintApplicationAllowed(entity))
-            return false;
-
-        PaintZ_PaintInspectionResult inspection = PaintZ_PaintInspector.Inspect(entity);
-        return inspection.m_Paintable && inspection.m_SelectionIndex >= 0;
+        PaintZ_NewPaintEvaluation evaluation = PaintZ_NewPaintEvaluation.Evaluate(target, item);
+        TraceCondition(item, target, evaluation.m_Target);
+        return evaluation.m_Result == PaintZ_NewPaintResult.PZ_NEW_PAINT_READY;
     }
 
     override void OnFinishProgressServer(ActionData action_data)
@@ -52,49 +45,22 @@ class ActionPaintZPaintBase : ActionContinuousBase
         if (!action_data.m_Target)
             return;
 
-        EntityAI entity = PaintZ_PaintTarget.ResolveActionTarget(action_data.m_Target);
         PaintZ_SprayCanBase spray = PaintZ_SprayCanBase.Cast(action_data.m_MainItem);
         PlayerBase player = action_data.m_Player;
         string paintCode = GetPaintCode();
 
-        if (!entity || !spray || !player || spray.GetPaintZPaintCode() != paintCode)
+        if (!spray || !player || spray.GetPaintZPaintCode() != paintCode)
             return;
 
-        if (spray.IsRuined())
+        PaintZ_NewPaintEvaluation evaluation = PaintZ_NewPaintEvaluation.Evaluate(action_data.m_Target, action_data.m_MainItem);
+        if (evaluation.m_Result != PaintZ_NewPaintResult.PZ_NEW_PAINT_READY)
         {
-            player.MessageStatus("Cannot Paint: Spray can is ruined");
+            PaintZ_NewPaintEvaluation.SendFailure(player, evaluation);
             return;
         }
 
-        if (entity.IsRuined())
-        {
-            player.MessageStatus("Cannot Paint: Item is ruined");
-            return;
-        }
-
-        if (spray.HasQuantity() && spray.GetQuantity() < PaintZ_PaintConstants.SPRAY_COST)
-        {
-            player.MessageStatus("Not enough paint remaining.");
-            return;
-        }
-
-        // The cached policy may have changed while this continuous action was
-        // running. Check before inspection, mutation, and consumption.
-        if (!PaintZ_ItemPolicy.IsPaintApplicationAllowed(entity))
-        {
-            PaintZ_PaintLog.Info("application rejected target=" + entity.GetType() + " reason=Excluded by runtime item policy");
-            player.MessageStatus("Cannot Paint: Item is excluded by server policy");
-            return;
-        }
-
-        // Re-inspect on the server at completion; do not trust the client's
-        // earlier action-condition result.
-        PaintZ_PaintInspectionResult inspection = PaintZ_PaintInspector.Inspect(entity);
-        if (!inspection.m_Paintable || inspection.m_SelectionIndex < 0)
-        {
-            player.MessageStatus("This item cannot be painted.");
-            return;
-        }
+        EntityAI entity = evaluation.m_Target;
+        PaintZ_PaintInspectionResult inspection = evaluation.m_Inspection;
 
         if (!PaintZ_PaintTarget.SetPaint(entity, paintCode, inspection.m_SelectionIndex))
         {

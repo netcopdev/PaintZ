@@ -12,25 +12,27 @@ Persistence is intentionally deferred. See `docs/PERSISTENCE_NOTES.md`.
 
 Paint applies at full opacity and another paint can can overwrite the finish.
 
-Server administrators can control new paint applications with
+Server administrators can control both new-paint target domains and application
+eligibility with
 `$profile:PaintZ/paintz_items.json`. PaintZ creates that file from the bundled
 `config/paintz_items.default.json` template on first startup and never
 overwrites an existing administrator copy. It also creates
 `$profile:PaintZ/paintz_items_README.txt` without overwriting an existing file.
 The JSON contains configuration only; see the adjacent operational README and
 `docs/item-policy.md` for reload, wildcard, inheritance, precedence, and failure
-semantics. Excluding a class hides Paint actions, never removes an existing
-finish, and never blocks Strip Paint.
+semantics. Objects outside all domains are silent for new painting. Excluding a
+class keeps it domain-relevant for an explanatory action, never removes an
+existing finish, and never blocks Strip Paint.
 Five-coat blending and color mixing
 are not implemented. See `docs/PAINT_COATS_FEASIBILITY.md` for the rendering limitation.
 
 ## Intended player flow
 
 1. Player holds `PaintZ_SprayCan_WDL`.
-2. Player points at a weapon or detachable magazine.
-3. PaintZ reads that object's `hiddenSelections[]` at runtime.
-4. If a safe paint selection can be inferred, the action shows `Paint Woodland`.
-5. Otherwise the action shows `Cannot Paint`; using it gives a reason.
+2. Player points at an object inside a configured PaintZ target domain.
+3. PaintZ evaluates can state, target state, eligibility policy, then capability.
+4. PaintZ reads that object's `hiddenSelections[]` at runtime only when needed.
+5. A safe allowed target shows `Paint Woodland`; failures show a specific reason.
 6. Painting calls `SetObjectTexture()` on the existing object. No item replacement and no classname change.
 
 ## Start with Codex
@@ -54,8 +56,9 @@ Then create/push the remote as usual.
 - `config.cpp` — mod registration plus generated paint declarations and the separate stripper can.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_PaintInspector.c` — runtime hidden-selection inspection.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_PaintVisuals.c` — texture application.
-- `Scripts/4_World/PaintZ/Paint/PaintZ_PaintTarget.c` — generic weapon/magazine dispatch.
-- `Scripts/4_World/PaintZ/Paint/PaintZ_WeaponPaintState.c` — weapon session sync state.
+- `Scripts/4_World/PaintZ/Paint/PaintZ_PaintTarget.c` — generic paint/strip dispatch.
+- `Scripts/4_World/PaintZ/Paint/PaintZ_ItemPaintState.c` — inventory-item session sync state.
+- `Scripts/4_World/PaintZ/Paint/PaintZ_PaintedState.c` — existing-paint lookup independent from domains/policy.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_MagazinePaintState.c` — magazine session sync state.
 - `Scripts/4_World/PaintZ/Actions/` — shared Paint / Cannot Paint action behavior.
 - `Scripts/4_World/PaintZ/Items/PaintZ_SprayCan.c` — shared spray-can behavior.

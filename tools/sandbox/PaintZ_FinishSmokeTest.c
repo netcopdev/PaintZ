@@ -14,6 +14,8 @@ class PaintZ_FinishSmokeTest
     {
         CheckWildcards();
         CheckPolicyEvaluation();
+        CheckTargetDomains();
+        CheckNewPaintEvaluation();
         Check(!PaintZ_PaintVisuals.HasPaint(null, 0), "null target");
         array<string> canTypes;
         array<string> paintCodes;
@@ -191,6 +193,127 @@ class PaintZ_FinishSmokeTest
         GetGame().ObjectDelete(magazine);
     }
 
+    static void CheckTargetDomains()
+    {
+        PaintZ_ItemPolicyConfig saved = PaintZ_ItemPolicy.GetActiveConfigForTests();
+        EntityAI weapon = EntityAI.Cast(GetGame().CreateObjectEx("M4A1", "4580 0 10200", ECE_PLACE_ON_SURFACE));
+        EntityAI magazine = EntityAI.Cast(GetGame().CreateObjectEx("Mag_CMAG_30Rnd_Black", "4580 0 10200", ECE_PLACE_ON_SURFACE));
+        EntityAI unrelated = EntityAI.Cast(GetGame().CreateObjectEx("Apple", "4580 0 10200", ECE_PLACE_ON_SURFACE));
+        Check(weapon && magazine && unrelated, "domain fixtures spawned");
+        if (!weapon || !magazine || !unrelated)
+            return;
+
+        PaintZ_ItemPolicyConfig defaults = MakePolicy("allow");
+        Check(PaintZ_ItemPolicy.InstallConfigForTests(defaults), "missing domains use defaults");
+        Check(PaintZ_ItemPolicy.IsRelevantTarget(weapon), "default weapon domain matches");
+        Check(PaintZ_ItemPolicy.IsRelevantTarget(magazine), "default detachable-magazine domain matches");
+        Check(!PaintZ_ItemPolicy.IsRelevantTarget(unrelated), "unrelated object is outside defaults");
+
+        PaintZ_ItemPolicyConfig combined = MakePolicy("allow");
+        combined.domains = new array<ref PaintZ_TargetDomainRule>;
+        combined.domains.Insert(MakeDomain("Weapon_Base", "M4*"));
+        Check(PaintZ_ItemPolicy.InstallConfigForTests(combined), "type plus class domain validates");
+        Check(PaintZ_ItemPolicy.IsRelevantTarget(weapon), "type plus class requires and matches both");
+        Check(!PaintZ_ItemPolicy.IsRelevantTarget(magazine), "type plus class rejects wrong type");
+
+        combined.domains.Insert(MakeDomain("Magazine_Base", "Mag_CMAG*"));
+        Check(PaintZ_ItemPolicy.InstallConfigForTests(combined), "separate domain entries validate");
+        Check(PaintZ_ItemPolicy.IsRelevantTarget(weapon) && PaintZ_ItemPolicy.IsRelevantTarget(magazine), "separate domains are OR");
+        Check(!PaintZ_ItemPolicy.IsRelevantTarget(unrelated), "domain wildcard rejects unrelated class");
+
+        PaintZ_ItemPolicyConfig invalid = MakePolicy("allow");
+        invalid.domains = new array<ref PaintZ_TargetDomainRule>;
+        invalid.domains.Insert(MakeDomain("NoSuchPaintZType", ""));
+        Check(!PaintZ_ItemPolicy.InstallConfigForTests(invalid), "invalid domain rejects candidate");
+        Check(PaintZ_ItemPolicy.IsRelevantTarget(weapon), "invalid domain retains previous config");
+
+        PaintZ_PaintInspectionResult inspection = PaintZ_PaintInspector.Inspect(weapon);
+        array<string> paintCodes;
+        PaintZ_PaintCatalog.GetPaintCodes(paintCodes);
+        if (inspection.m_Paintable && paintCodes.Count() > 0)
+        {
+            Check(PaintZ_PaintTarget.SetPaint(weapon, paintCodes[0], inspection.m_SelectionIndex), "paint applied while in domain");
+            PaintZ_ItemPolicyConfig none = MakePolicy("allow");
+            none.domains = new array<ref PaintZ_TargetDomainRule>;
+            none.domains.Insert(MakeDomain("", "PaintZ_Disabled_*"));
+            Check(PaintZ_ItemPolicy.InstallConfigForTests(none), "nonmatching domain validates");
+            Check(!PaintZ_ItemPolicy.IsRelevantTarget(weapon), "removed domain makes new painting silent");
+            Check(PaintZ_PaintedState.GetPaintedSelection(weapon) == inspection.m_SelectionIndex, "painted state survives domain removal");
+            PaintZ_PaintStripperCan stripper = PaintZ_PaintStripperCan.Cast(GetGame().CreateObjectEx("PaintZ_PaintStripperCan", weapon.GetPosition(), ECE_PLACE_ON_SURFACE));
+            ActionTarget paintedTarget = new ActionTarget(weapon, null, -1, weapon.GetPosition(), 0);
+            ActionPaintZStripPaint stripAction = new ActionPaintZStripPaint();
+            if (stripper)
+                stripper.SetQuantity(stripper.GetQuantityMax());
+            Check(stripper && stripAction.ActionCondition(null, paintedTarget, stripper), "Strip Paint action survives domain removal");
+            Check(PaintZ_PaintTarget.SetPaint(weapon, PaintZ_PaintConstants.PAINT_NONE, inspection.m_SelectionIndex), "strip bypasses removed domain");
+            if (stripper)
+                GetGame().ObjectDelete(stripper);
+        }
+
+        PaintZ_ItemPolicy.InstallConfigForTests(saved);
+        GetGame().ObjectDelete(weapon);
+        GetGame().ObjectDelete(magazine);
+        GetGame().ObjectDelete(unrelated);
+    }
+
+    static void CheckNewPaintEvaluation()
+    {
+        PaintZ_ItemPolicyConfig saved = PaintZ_ItemPolicy.GetActiveConfigForTests();
+        PaintZ_ItemPolicy.InstallConfigForTests(MakePolicy("allow"));
+        array<string> canTypes;
+        PaintZ_PaintCatalog.GetCanTypes(canTypes);
+        if (canTypes.Count() == 0)
+        {
+            Check(false, "new-paint evaluation has a can fixture");
+            return;
+        }
+
+        EntityAI weapon = EntityAI.Cast(GetGame().CreateObjectEx("M4A1", "4580 0 10200", ECE_PLACE_ON_SURFACE));
+        EntityAI unsupported = EntityAI.Cast(GetGame().CreateObjectEx("SCARH", "4580 0 10200", ECE_PLACE_ON_SURFACE));
+        EntityAI unrelated = EntityAI.Cast(GetGame().CreateObjectEx("Apple", "4580 0 10200", ECE_PLACE_ON_SURFACE));
+        ItemBase can = ItemBase.Cast(GetGame().CreateObjectEx(canTypes[0], "4580 0 10200", ECE_PLACE_ON_SURFACE));
+        Check(weapon && unsupported && unrelated && can, "new-paint evaluation fixtures spawned");
+        if (!weapon || !unsupported || !unrelated || !can)
+            return;
+
+        can.SetQuantity(can.GetQuantityMax());
+        ActionTarget weaponTarget = new ActionTarget(weapon, null, -1, weapon.GetPosition(), 0);
+        Check(PaintZ_NewPaintEvaluation.Evaluate(weaponTarget, can).m_Result == PaintZ_NewPaintResult.PZ_NEW_PAINT_READY, "allowed supported weapon evaluates Paint");
+
+        ActionTarget unrelatedTarget = new ActionTarget(unrelated, null, -1, unrelated.GetPosition(), 0);
+        Check(PaintZ_NewPaintEvaluation.Evaluate(unrelatedTarget, can).m_Result == PaintZ_NewPaintResult.PZ_NEW_PAINT_SILENT, "unrelated object is silent");
+
+        can.SetQuantity(0);
+        Check(PaintZ_NewPaintEvaluation.Evaluate(weaponTarget, can).m_Result == PaintZ_NewPaintResult.PZ_NEW_PAINT_CAN_EMPTY, "empty can result");
+        can.SetQuantity(can.GetQuantityMax());
+
+        float canHealth = can.GetMaxHealth("", "Health");
+        can.SetHealth("", "Health", 0);
+        Check(PaintZ_NewPaintEvaluation.Evaluate(weaponTarget, can).m_Result == PaintZ_NewPaintResult.PZ_NEW_PAINT_CAN_RUINED, "ruined can result");
+        can.SetHealth("", "Health", canHealth);
+
+        float weaponHealth = weapon.GetMaxHealth("", "Health");
+        weapon.SetHealth("", "Health", 0);
+        Check(PaintZ_NewPaintEvaluation.Evaluate(weaponTarget, can).m_Result == PaintZ_NewPaintResult.PZ_NEW_PAINT_TARGET_RUINED, "ruined target result");
+        weapon.SetHealth("", "Health", weaponHealth);
+
+        PaintZ_ItemPolicyConfig excluded = MakePolicy("allow");
+        excluded.rules.Insert(MakePatternRule("exclude", "weapon", "M4A1"));
+        PaintZ_ItemPolicy.InstallConfigForTests(excluded);
+        Check(PaintZ_ItemPolicy.IsRelevantTarget(weapon), "policy exclusion retains domain membership");
+        Check(PaintZ_NewPaintEvaluation.Evaluate(weaponTarget, can).m_Result == PaintZ_NewPaintResult.PZ_NEW_PAINT_EXCLUDED, "excluded target result");
+
+        PaintZ_ItemPolicy.InstallConfigForTests(MakePolicy("allow"));
+        ActionTarget unsupportedTarget = new ActionTarget(unsupported, null, -1, unsupported.GetPosition(), 0);
+        Check(PaintZ_NewPaintEvaluation.Evaluate(unsupportedTarget, can).m_Result == PaintZ_NewPaintResult.PZ_NEW_PAINT_UNSUPPORTED, "technically unsupported target result");
+
+        PaintZ_ItemPolicy.InstallConfigForTests(saved);
+        GetGame().ObjectDelete(weapon);
+        GetGame().ObjectDelete(unsupported);
+        GetGame().ObjectDelete(unrelated);
+        GetGame().ObjectDelete(can);
+    }
+
     static void CheckPolicyActionRace(PlayerBase player)
     {
         if (!player)
@@ -253,6 +376,14 @@ class PaintZ_FinishSmokeTest
         rule.type = type;
         rule.inherits = inheritedClass;
         return rule;
+    }
+
+    static PaintZ_TargetDomainRule MakeDomain(string type, string pattern)
+    {
+        PaintZ_TargetDomainRule domain = new PaintZ_TargetDomainRule();
+        domain.type = type;
+        domain.class_pattern = pattern;
+        return domain;
     }
 
     static void CheckRejected(string type)

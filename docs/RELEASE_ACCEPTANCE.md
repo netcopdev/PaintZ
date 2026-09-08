@@ -31,7 +31,8 @@ For server-only finish, stripper, and sandbox test results, see `FINISH_VALIDATI
 
 - [ ] A missing `$profile:PaintZ/paintz_items.json` is created from the bundled default; an existing file is not overwritten.
 - [ ] A missing `$profile:PaintZ/paintz_items_README.txt` is created from the bundled README; an existing file is not overwritten.
-- [ ] The default JSON contains only `version`, `reload_seconds`, `default_action`, and actual `rules`; all shipped examples parse as strict JSON.
+- [ ] The default JSON contains only `version`, `reload_seconds`, `default_action`, actual `domains`, and actual `rules`; all shipped examples parse as strict JSON.
+- [ ] Missing or empty `domains` uses weapon/detachable-magazine defaults; a nonmatching domain makes new painting silent without blocking stripping of existing PaintZ paint.
 - [ ] Ordered `exclude TTC_*` then `include TTC_AK*` rules produce last-match-wins behavior.
 - [ ] `*` and `?` are case-insensitive; patterns without wildcards match exact classnames only.
 - [ ] Weapon-only rules do not affect magazines, and magazine-only rules do not affect weapons.

@@ -4,6 +4,7 @@ class ActionPaintZCannotPaint : ActionSingleUseBase
     {
         m_CommandUID = DayZPlayerConstants.CMD_ACTIONMOD_OPENDOORFW;
         m_StanceMask = DayZPlayerConstants.STANCEMASK_ERECT | DayZPlayerConstants.STANCEMASK_CROUCH;
+        m_Text = "Cannot Paint";
     }
 
     override void CreateConditionComponents()
@@ -14,7 +15,7 @@ class ActionPaintZCannotPaint : ActionSingleUseBase
 
     override string GetText()
     {
-        return "Cannot Paint";
+        return m_Text;
     }
 
     override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
@@ -23,12 +24,9 @@ class ActionPaintZCannotPaint : ActionSingleUseBase
         if (!spray || !target)
             return false;
 
-        EntityAI entity = PaintZ_PaintTarget.ResolveActionTarget(target);
-        if (!PaintZ_PaintInspector.IsSupportedTarget(entity))
-            return false;
-
-        PaintZ_PaintInspectionResult inspection = PaintZ_PaintInspector.Inspect(entity);
-        return spray.IsRuined() || !inspection.m_Paintable || entity.IsRuined() || !PaintZ_ItemPolicy.IsPaintApplicationAllowed(entity);
+        PaintZ_NewPaintEvaluation evaluation = PaintZ_NewPaintEvaluation.Evaluate(target, item);
+        m_Text = PaintZ_NewPaintEvaluation.GetActionText(evaluation.m_Result);
+        return evaluation.m_Result != PaintZ_NewPaintResult.PZ_NEW_PAINT_SILENT && evaluation.m_Result != PaintZ_NewPaintResult.PZ_NEW_PAINT_READY;
     }
 
     override void OnExecuteServer(ActionData action_data)
@@ -36,32 +34,11 @@ class ActionPaintZCannotPaint : ActionSingleUseBase
         if (!action_data.m_Target)
             return;
 
-        EntityAI entity = PaintZ_PaintTarget.ResolveActionTarget(action_data.m_Target);
         PlayerBase player = action_data.m_Player;
-
-        if (!entity || !player)
+        if (!player)
             return;
 
-        PaintZ_SprayCanBase spray = PaintZ_SprayCanBase.Cast(action_data.m_MainItem);
-        if (!spray || spray.IsRuined())
-        {
-            player.MessageStatus("Cannot Paint: Spray can is ruined");
-            return;
-        }
-
-        if (entity.IsRuined())
-        {
-            player.MessageStatus("Cannot Paint: Item is ruined");
-            return;
-        }
-
-        if (!PaintZ_ItemPolicy.IsPaintApplicationAllowed(entity))
-        {
-            player.MessageStatus("Cannot Paint: Item is excluded by server policy");
-            return;
-        }
-
-        PaintZ_PaintInspectionResult inspection = PaintZ_PaintInspector.Inspect(entity);
-        player.MessageStatus("This item cannot be painted. " + inspection.m_Reason + ".");
+        PaintZ_NewPaintEvaluation evaluation = PaintZ_NewPaintEvaluation.Evaluate(action_data.m_Target, action_data.m_MainItem);
+        PaintZ_NewPaintEvaluation.SendFailure(player, evaluation);
     }
 };
