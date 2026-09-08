@@ -53,6 +53,25 @@ class CfgVehicles
     class PaintZ_SprayCanBase : Spraycan_ColorBase
     {
         scope = 0;
+
+        // CMD_ACTIONFB_SPRAYPLANT emits these stock animation events. Keeping
+        // sound on the held item lets DayZ synchronize and spatialize it.
+        class AnimEvents
+        {
+            class SoundWeapon
+            {
+                class PaintZ_DisinfectantLoop
+                {
+                    soundSet = "disinfectant_loop_SoundSet";
+                    id = 212;
+                };
+                class PaintZ_DisinfectantLoop2
+                {
+                    soundSet = "disinfectant_loop_SoundSet";
+                    id = 213;
+                };
+            };
+        };
     };
 
     #include "tools\paintzgen\generated\dayz\PaintZ_Paints.generated.inc"
