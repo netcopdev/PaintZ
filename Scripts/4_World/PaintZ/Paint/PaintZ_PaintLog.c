@@ -7,6 +7,11 @@ class PaintZ_PaintLog
         Print("[PaintZ][Paint] " + text);
     }
 
+    static void Warning(string text)
+    {
+        Print("[PaintZ][WARNING] " + text);
+    }
+
     static void Inspect(EntityAI target, TStringArray selections, PaintZ_PaintInspectionResult result)
     {
         if (!target)

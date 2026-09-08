@@ -89,6 +89,30 @@ def emit_dayz(catalog: list[dict], dayz: dict, out_dir: Path):
         '        return "Original";',
         "    }",
         "",
+        "    static bool HasPaintCode(string paintCode)",
+        "    {",
+    ]
+    for item in catalog:
+        script_lines += [
+            f'        if (paintCode == "{_enforce_string(item["code"])}")',
+            "            return true;",
+        ]
+    script_lines += [
+        "        return false;",
+        "    }",
+        "",
+        "    static string GetPaintCodeByNetworkHash(int paintHash)",
+        "    {",
+    ]
+    for item in catalog:
+        script_lines += [
+            f'        if ("{_enforce_string(item["code"])}".Hash() == paintHash)',
+            f'            return "{_enforce_string(item["code"])}";',
+        ]
+    script_lines += [
+        '        return "";',
+        "    }",
+        "",
         "    static void GetPaintCodes(out array<string> paintCodes)",
         "    {",
         "        paintCodes = new array<string>;",

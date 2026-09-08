@@ -39,8 +39,23 @@ disable new-paint scope. Domain membership does not imply policy eligibility or
 technical capability.
 
 Stripping locates existing PaintZ-painted state directly and never consults
-current domains, policy, or the current selection heuristic. Durable restart
-persistence is not yet implemented; see `PERSISTENCE_NOTES.md`.
+current domains, policy, or the current selection heuristic.
+
+`ItemBase` carries PaintZ's reusable logical state and network fields so future
+paintable inventory categories (for example grips, handguards, suppressors, and
+clothing) can share one representation. Persistence is deliberately attached
+only to the entity hierarchies PaintZ currently supports: `Weapon_Base` and the
+separate detachable-magazine hierarchy at `MagazineStorage`. (`Magazine` itself
+is an engine class and cannot be modded.) Adding a new target category requires
+an explicit persistence-hook review; it must not be assumed to inherit either
+current hook.
+
+Native save hooks append a self-identifying PaintZ block after vanilla state.
+`OnStoreLoad` restores only the logical finish ID. `AfterStoreLoad` performs a
+one-shot runtime selection inspection and visual application, without applying
+new-paint policy. The server then dirties the derived network hash and selection
+fields, allowing already-connected and late-joining clients to resolve the
+canonical finish from the generated catalogue. See `PERSISTENCE_NOTES.md`.
 
 ## Why no per-weapon definitions
 

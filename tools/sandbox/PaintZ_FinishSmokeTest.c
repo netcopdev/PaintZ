@@ -12,6 +12,8 @@ class PaintZ_FinishSmokeTest
 
     static void Run()
     {
+        CheckPersistenceCodec();
+        CheckNativeEntityPersistence();
         CheckWildcards();
         CheckPolicyEvaluation();
         CheckTargetDomains();
@@ -30,6 +32,109 @@ class PaintZ_FinishSmokeTest
         CheckRejected("SCARH");
         CheckRejected("Mag_STANAG_30Rnd");
         Print("[PaintZ][Smoke] COMPLETE");
+    }
+
+    static void CheckPersistenceCodec()
+    {
+        array<string> paintCodes;
+        PaintZ_PaintCatalog.GetPaintCodes(paintCodes);
+        Check(paintCodes.Count() > 0, "persistence codec has a finish fixture");
+        if (paintCodes.Count() == 0)
+            return;
+
+        ParamsWriteContext writeContext;
+        ParamsReadContext readContext;
+        ScriptReadWriteContext paintedContext = new ScriptReadWriteContext();
+        writeContext = paintedContext.GetWriteContext();
+        readContext = paintedContext.GetReadContext();
+        PaintZ_PaintPersistence.Save(writeContext, paintCodes[0]);
+        string loadedPaint;
+        PaintZ_PersistenceReadResult paintedResult = PaintZ_PaintPersistence.Load(readContext, null, loadedPaint);
+        Check(paintedResult == PaintZ_PersistenceReadResult.PZ_PERSISTENCE_VALID && loadedPaint == paintCodes[0], "painted persistence round trip");
+
+        ScriptReadWriteContext strippedContext = new ScriptReadWriteContext();
+        writeContext = strippedContext.GetWriteContext();
+        readContext = strippedContext.GetReadContext();
+        PaintZ_PaintPersistence.Save(writeContext, PaintZ_PaintConstants.PAINT_NONE);
+        loadedPaint = "unexpected";
+        PaintZ_PersistenceReadResult strippedResult = PaintZ_PaintPersistence.Load(readContext, null, loadedPaint);
+        Check(strippedResult == PaintZ_PersistenceReadResult.PZ_PERSISTENCE_VALID && loadedPaint == PaintZ_PaintConstants.PAINT_NONE, "unpainted persistence round trip");
+
+        ScriptReadWriteContext legacyContext = new ScriptReadWriteContext();
+        readContext = legacyContext.GetReadContext();
+        loadedPaint = "unexpected";
+        PaintZ_PersistenceReadResult legacyResult = PaintZ_PaintPersistence.Load(readContext, null, loadedPaint);
+        Check(legacyResult == PaintZ_PersistenceReadResult.PZ_PERSISTENCE_LEGACY && loadedPaint == PaintZ_PaintConstants.PAINT_NONE, "legacy entity has no PaintZ state");
+
+        string unavailablePaint = "PZ-X-REMOVED";
+        ScriptReadWriteContext unknownContext = new ScriptReadWriteContext();
+        writeContext = unknownContext.GetWriteContext();
+        readContext = unknownContext.GetReadContext();
+        PaintZ_PaintPersistence.Save(writeContext, unavailablePaint);
+        loadedPaint = "";
+        PaintZ_PersistenceReadResult unknownResult = PaintZ_PaintPersistence.Load(readContext, null, loadedPaint);
+        Check(unknownResult == PaintZ_PersistenceReadResult.PZ_PERSISTENCE_VALID && loadedPaint == unavailablePaint, "unknown finish ID is preserved");
+
+        int paintHash = PaintZ_PaintStateRuntime.GetNetworkHash(paintCodes[0]);
+        Check(PaintZ_PaintStateRuntime.GetNetworkPaintCode(paintHash) == paintCodes[0], "finish ID network lookup round trip");
+    }
+
+    static void CheckNativeEntityPersistence()
+    {
+        array<string> paintCodes;
+        PaintZ_PaintCatalog.GetPaintCodes(paintCodes);
+        if (paintCodes.Count() == 0)
+            return;
+
+        EntityAI weaponEntity = EntityAI.Cast(GetGame().CreateObjectEx("M4A1", "4580 0 10200", ECE_PLACE_ON_SURFACE));
+        Weapon_Base weapon = Weapon_Base.Cast(weaponEntity);
+        PaintZ_PaintInspectionResult weaponInspection = PaintZ_PaintInspector.Inspect(weaponEntity);
+        Check(weapon && weaponInspection.m_Paintable, "weapon persistence fixtures initialized");
+        if (weapon && weaponInspection.m_Paintable)
+        {
+            Check(PaintZ_PaintTarget.SetPaint(weapon, paintCodes[0], weaponInspection.m_SelectionIndex), "weapon persistence source painted");
+            ScriptReadWriteContext weaponContext = new ScriptReadWriteContext();
+            weapon.OnStoreSave(weaponContext.GetWriteContext());
+
+            Weapon_Base restoredWeapon = Weapon_Base.Cast(GetGame().CreateObjectEx("M4A1", "4582 0 10200", ECE_PLACE_ON_SURFACE));
+            bool weaponLoaded = restoredWeapon && restoredWeapon.OnStoreLoad(weaponContext.GetReadContext(), int.MAX - 1);
+            if (weaponLoaded)
+                restoredWeapon.AfterStoreLoad();
+            Check(weaponLoaded, "weapon native persistence load chain");
+            Check(weaponLoaded && restoredWeapon.PaintZ_GetPaintCode() == paintCodes[0], "weapon logical finish restored");
+            Check(weaponLoaded && PaintZ_PaintVisuals.HasPaint(restoredWeapon, restoredWeapon.PaintZ_GetPaintSelection()), "weapon appearance restored after load");
+            if (restoredWeapon)
+                GetGame().ObjectDelete(restoredWeapon);
+        }
+        if (weaponEntity)
+            GetGame().ObjectDelete(weaponEntity);
+
+        EntityAI magazineEntity = EntityAI.Cast(GetGame().CreateObjectEx("Mag_CMAG_30Rnd_Black", "4580 0 10200", ECE_PLACE_ON_SURFACE));
+        Magazine magazine = Magazine.Cast(magazineEntity);
+        PaintZ_PaintInspectionResult magazineInspection = PaintZ_PaintInspector.Inspect(magazineEntity);
+        Check(magazine && magazineInspection.m_Paintable, "magazine persistence fixtures initialized");
+        if (magazine && magazineInspection.m_Paintable)
+        {
+            magazine.ServerSetAmmoCount(7);
+            Check(PaintZ_PaintTarget.SetPaint(magazine, paintCodes[0], magazineInspection.m_SelectionIndex), "magazine persistence source painted");
+            ScriptReadWriteContext magazineContext = new ScriptReadWriteContext();
+            magazine.OnStoreSave(magazineContext.GetWriteContext());
+
+            Magazine restoredMagazine = Magazine.Cast(GetGame().CreateObjectEx("Mag_CMAG_30Rnd_Black", "4582 0 10200", ECE_PLACE_ON_SURFACE));
+            if (restoredMagazine)
+                restoredMagazine.ServerSetAmmoCount(7);
+            bool magazineLoaded = restoredMagazine && restoredMagazine.OnStoreLoad(magazineContext.GetReadContext(), int.MAX - 1);
+            if (magazineLoaded)
+                restoredMagazine.AfterStoreLoad();
+            Check(magazineLoaded, "magazine native persistence load chain");
+            Check(magazineLoaded && restoredMagazine.PaintZ_GetPaintCode() == paintCodes[0], "magazine logical finish restored");
+            Check(magazineLoaded && PaintZ_PaintVisuals.HasPaint(restoredMagazine, restoredMagazine.PaintZ_GetPaintSelection()), "magazine appearance restored after load");
+            Check(magazineLoaded && restoredMagazine.GetAmmoCount() == 7, "PaintZ load leaves magazine ammunition unchanged");
+            if (restoredMagazine)
+                GetGame().ObjectDelete(restoredMagazine);
+        }
+        if (magazineEntity)
+            GetGame().ObjectDelete(magazineEntity);
     }
 
     static void CheckCan(string type, string paintCode)

@@ -45,19 +45,17 @@ class PaintZ_PaintTarget
                 return false;
         }
 
-        ItemBase item;
-        if (Class.CastTo(item, target))
-        {
-            item.PaintZ_SetPaintState(paintCode, selectionIndex);
-            return true;
-        }
+        Weapon_Base weapon;
+        if (Class.CastTo(weapon, target))
+            return weapon.PaintZ_SetPaintState(paintCode, selectionIndex);
 
         Magazine magazine;
         if (Class.CastTo(magazine, target))
-        {
-            PaintZ_MagazinePaintState.SetPaint(magazine, paintCode, selectionIndex);
-            return true;
-        }
+            return magazine.PaintZ_SetPaintState(paintCode, selectionIndex);
+
+        ItemBase item;
+        if (Class.CastTo(item, target))
+            return item.PaintZ_SetPaintState(paintCode, selectionIndex);
 
         return false;
     }

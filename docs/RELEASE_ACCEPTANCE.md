@@ -42,10 +42,22 @@ For server-only finish, stripper, and sandbox test results, see `FINISH_VALIDATI
 - [ ] An excluded target does not offer a Paint action to a connected client.
 - [ ] Excluding an already-painted item leaves its finish unchanged and still allows Strip Paint.
 
+## Native persistence
+
+- [ ] A painted weapon retains its finish through a server restart.
+- [ ] A loose painted magazine retains its finish and ammunition through restart.
+- [ ] A painted, partially loaded magazine inserted in a weapon retains attachment, ammunition, and finish.
+- [ ] Painted weapons and magazines survive restart in player inventory, persistent storage, nested storage, and vehicle cargo.
+- [ ] Repainting A to B persists B; stripping persists the unpainted state.
+- [ ] Excluding a previously painted class does not prevent restore or stripping.
+- [ ] A missing finish definition preserves the logical ID, logs a warning, and renders again after the definition returns.
+- [ ] Pre-feature weapon and magazine persistence loads without errors or warning spam.
+- [ ] A client joining after server restoration sees the finish.
+- [ ] The documented PaintZ-removal/save data-loss limitation has been tested only on a backup persistence copy.
+
 ## Not currently included
 
-- persistence across server restart;
-- uninstallation safety;
+- preservation through a save cycle performed while PaintZ is unloaded;
 - production Woodland texture;
 - arbitrary colors;
 - optics/attachments/clothing;

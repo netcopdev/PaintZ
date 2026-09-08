@@ -1,20 +1,25 @@
 modded class ItemBase
 {
-    protected static const int PAINTZ_RPC_PAINT_STATE = 782341;
-
     protected string m_PaintZPaintCode = PaintZ_PaintConstants.PAINT_NONE;
     protected int m_PaintZPaintSelection = -1;
+    protected int m_PaintZPaintCodeHash;
 
-    void PaintZ_SetPaintState(string paintCode, int selectionIndex)
+    void ItemBase()
     {
+        RegisterNetSyncVariableInt("m_PaintZPaintCodeHash", int.MIN, int.MAX);
+        RegisterNetSyncVariableInt("m_PaintZPaintSelection", -1, 255);
+    }
+
+    bool PaintZ_SetPaintState(string paintCode, int selectionIndex)
+    {
+        if (!PaintZ_PaintVisuals.Apply(this, paintCode, selectionIndex))
+            return false;
+
         m_PaintZPaintCode = paintCode;
         m_PaintZPaintSelection = selectionIndex;
-
-        PaintZ_ApplyPaintVisual();
+        m_PaintZPaintCodeHash = PaintZ_PaintStateRuntime.GetNetworkHash(paintCode);
         SetSynchDirty();
-
-        if (GetGame().IsServer() && GetGame().IsMultiplayer())
-            GetGame().RPCSingleParam(this, PAINTZ_RPC_PAINT_STATE, new Param2<string, int>(m_PaintZPaintCode, m_PaintZPaintSelection), true, null);
+        return true;
     }
 
     string PaintZ_GetPaintCode()
@@ -27,24 +32,28 @@ modded class ItemBase
         return m_PaintZPaintSelection;
     }
 
-    protected void PaintZ_ApplyPaintVisual()
+    void PaintZ_LoadPaintState(string paintCode)
     {
-        PaintZ_PaintVisuals.Apply(this, m_PaintZPaintCode, m_PaintZPaintSelection);
+        m_PaintZPaintCode = paintCode;
+        m_PaintZPaintSelection = -1;
+        m_PaintZPaintCodeHash = PaintZ_PaintStateRuntime.GetNetworkHash(paintCode);
     }
 
-    override void OnRPC(PlayerIdentity sender, int rpc_type, ParamsReadContext ctx)
+    void PaintZ_RestoreLoadedPaint()
     {
-        super.OnRPC(sender, rpc_type, ctx);
+        PaintZ_PaintStateRuntime.RestorePersistedVisual(this, m_PaintZPaintCode, m_PaintZPaintSelection);
+        m_PaintZPaintCodeHash = PaintZ_PaintStateRuntime.GetNetworkHash(m_PaintZPaintCode);
+        if (GetGame().IsServer())
+            SetSynchDirty();
+    }
 
-        if (rpc_type != PAINTZ_RPC_PAINT_STATE || !GetGame().IsClient())
+    override void OnVariablesSynchronized()
+    {
+        super.OnVariablesSynchronized();
+        if (m_PaintZPaintSelection < 0)
             return;
 
-        Param2<string, int> state;
-        if (!ctx.Read(state))
-            return;
-
-        m_PaintZPaintCode = state.param1;
-        m_PaintZPaintSelection = state.param2;
-        PaintZ_ApplyPaintVisual();
+        m_PaintZPaintCode = PaintZ_PaintStateRuntime.GetNetworkPaintCode(m_PaintZPaintCodeHash);
+        PaintZ_PaintVisuals.Apply(this, m_PaintZPaintCode, m_PaintZPaintSelection);
     }
 };

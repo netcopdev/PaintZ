@@ -12,15 +12,22 @@ class PaintZ_PaintVisuals
         return texture.IndexOf("paintz\\data\\surfaces\\pz_") == 0;
     }
 
-    static void Apply(EntityAI target, string paintCode, int selectionIndex)
+    static bool Apply(EntityAI target, string paintCode, int selectionIndex)
     {
         if (!target || selectionIndex < 0)
-            return;
+            return false;
 
         if (paintCode == PaintZ_PaintConstants.PAINT_NONE)
             RestoreConfiguredTexture(target, selectionIndex);
         else
+        {
+            if (!PaintZ_PaintCatalog.HasPaintCode(paintCode))
+                return false;
+
             target.SetObjectTexture(selectionIndex, PaintZ_PaintConstants.GetSurfaceTexture(paintCode));
+        }
+
+        return true;
     }
 
     protected static void RestoreConfiguredTexture(EntityAI target, int selectionIndex)

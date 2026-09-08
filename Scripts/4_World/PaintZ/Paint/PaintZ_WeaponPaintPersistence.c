@@ -1,6 +1,4 @@
-// Magazine itself is an engine class and cannot be modded. MagazineStorage is
-// the nearest script-modifiable common base for DayZ detachable magazines.
-modded class MagazineStorage
+modded class Weapon_Base
 {
     override void OnStoreSave(ParamsWriteContext ctx)
     {
@@ -26,5 +24,4 @@ modded class MagazineStorage
         super.AfterStoreLoad();
         PaintZ_RestoreLoadedPaint();
     }
-
 }

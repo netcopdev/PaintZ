@@ -56,6 +56,10 @@ assert "static void AttachActionsToCan(PaintZ_SprayCanBase sprayCan)" in script
 assert "sprayCan.AddAction(ActionPaintZPaint_C_WDL);" in script
 assert "sprayCan.AddAction(ActionPaintZPaint_S_PRV);" in script
 assert 'return "Paint Woodland";' in script
+assert "static bool HasPaintCode(string paintCode)" in script
+assert 'if (paintCode == "PZ-C-WDL")' in script
+assert "static string GetPaintCodeByNetworkHash(int paintHash)" in script
+assert 'if ("PZ-C-WDL".Hash() == paintHash)' in script
 assert "return ActionPaintZPaint_S_PRV;" in script
 assert "typename noAction;" in script
 assert "return noAction;" in script

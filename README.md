@@ -8,7 +8,11 @@ PaintZ is prepared as a production mod. The finish changes have been packaged wi
 
 Every finish in `tools/paintzgen/paints.json` is available through the same runtime inspection and paint actions. Only the dedicated `PaintZ_PaintStripperCan` offers Strip Paint, and only when the selected surface currently carries a PaintZ finish.
 
-Persistence is intentionally deferred. See `docs/PERSISTENCE_NOTES.md`.
+Painted weapons and detachable magazines persist through native DayZ entity
+save/load hooks; Community Framework is not required. Keep PaintZ loaded for
+every persistence save cycle where paint preservation matters. See
+`docs/PERSISTENCE_NOTES.md` for the accepted removal limitation and restart
+test procedure.
 
 Paint applies at full opacity and another paint can can overwrite the finish.
 
@@ -57,9 +61,11 @@ Then create/push the remote as usual.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_PaintInspector.c` — runtime hidden-selection inspection.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_PaintVisuals.c` — texture application.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_PaintTarget.c` — generic paint/strip dispatch.
-- `Scripts/4_World/PaintZ/Paint/PaintZ_ItemPaintState.c` — inventory-item session sync state.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_PaintedState.c` — existing-paint lookup independent from domains/policy.
-- `Scripts/4_World/PaintZ/Paint/PaintZ_MagazinePaintState.c` — magazine session sync state.
+- `Scripts/4_World/PaintZ/Paint/PaintZ_ItemPaintState.c` — reusable logical paint state and network synchronization for present and future inventory-item targets.
+- `Scripts/4_World/PaintZ/Paint/PaintZ_WeaponPaintPersistence.c` — native weapon persistence hook.
+- `Scripts/4_World/PaintZ/Paint/PaintZ_MagazinePaintState.c` — native detachable-magazine persistence hook.
+- `Scripts/4_World/PaintZ/Paint/PaintZ_PaintPersistence.c` — shared versioned persistence codec and post-load visual restoration.
 - `Scripts/4_World/PaintZ/Actions/` — shared Paint / Cannot Paint action behavior.
 - `Scripts/4_World/PaintZ/Items/PaintZ_SprayCan.c` — shared spray-can behavior.
 - `docs/` — architecture, acceptance criteria, persistence cautions, references.
