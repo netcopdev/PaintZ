@@ -63,8 +63,11 @@ class PaintZ_PatternScaling
         if (!ResolveSupportedScalePercent(s_ActiveConfig.default_scale, defaultScalePercent))
             defaultScalePercent = 100;
 
-        if (!GetMaxDimensionMeters(target, maxDimensionMeters))
+        float measuredDimensionMeters = -1.0;
+        if (!GetMaxDimensionMeters(target, measuredDimensionMeters))
             return defaultScalePercent;
+
+        maxDimensionMeters = measuredDimensionMeters;
 
         for (int i = 0; s_ActiveConfig.ranges && i < s_ActiveConfig.ranges.Count(); i++)
         {
