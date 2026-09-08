@@ -36,24 +36,27 @@ class PaintZ_PaintPersistence
         if (!ctx)
             return true;
 
+        // PaintZ persistence must never make the underlying DayZ item fail to
+        // load. Bad/unsupported PaintZ data is isolated to PaintZ state: warn,
+        // leave the item unpainted for this load, and keep the entity usable.
         if (ctx.GetVersion() != STORAGE_VERSION)
         {
-            Warn(target, "unsupported storage version=" + ctx.GetVersion());
-            return false;
+            Warn(target, "unsupported storage version=" + ctx.GetVersion() + "; ignoring PaintZ state");
+            return true;
         }
 
         if (!ctx.Read(paintCode))
         {
-            Warn(target, "malformed CF ModStorage payload: finish ID could not be read");
+            Warn(target, "malformed CF ModStorage payload: finish ID could not be read; ignoring PaintZ state");
             paintCode = PaintZ_PaintConstants.PAINT_NONE;
-            return false;
+            return true;
         }
 
         if (paintCode == "" || paintCode == PaintZ_PaintConstants.PAINT_NONE)
         {
-            Warn(target, "malformed CF ModStorage payload: invalid finish ID");
+            Warn(target, "malformed CF ModStorage payload: invalid finish ID; ignoring PaintZ state");
             paintCode = PaintZ_PaintConstants.PAINT_NONE;
-            return false;
+            return true;
         }
 
         return true;
