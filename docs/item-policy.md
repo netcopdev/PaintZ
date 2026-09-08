@@ -72,37 +72,122 @@ Each rule has:
 
 - `action`: `include` or `exclude`;
 - optional `type`: `all`, any valid DayZ base/config class, or legacy `weapon` / `magazine` aliases;
-- exactly one selector from:
-  - `class_pattern`;
-  - `inherits`;
-  - `inventory_slot`;
-  - `inventory_slot_pattern`.
+- at least one selector from the singular or plural selector families below.
 
-`type` is scope, not the selector.
+Supported selector families:
 
-Examples:
+- `class_pattern`: one classname glob;
+- `class_patterns`: OR-list of classname globs;
+- `inherits`: one inheritance class;
+- `inherits_any`: OR-list of inheritance classes;
+- `inventory_slot`: one exact declared slot;
+- `inventory_slots`: OR-list of exact declared slots;
+- `inventory_slot_pattern`: one declared-slot glob;
+- `inventory_slot_patterns`: OR-list of declared-slot globs.
+
+`type` is scope, not a selector.
+
+### Matching semantics
+
+Different selector groups inside the same rule are **AND**.
+
+Multiple values inside the same selector group are **OR**.
+
+If both the singular and plural form of one selector are present, they form one OR group.
+
+Separate rules are still evaluated top-to-bottom and the **last matching rule wins**.
+
+For example:
+
+```json
+{
+  "action": "exclude",
+  "class_patterns": [
+    "ACOGOptic",
+    "HuntingOptic",
+    "MK4Optic*"
+  ]
+}
+```
+
+matches:
+
+`ACOGOptic OR HuntingOptic OR MK4Optic*`
+
+A compound rule:
 
 ```json
 {
   "action": "exclude",
   "type": "Weapon_Base",
-  "class_pattern": "TTC_*"
+  "class_patterns": [
+    "TTC_*",
+    "MMG_*"
+  ],
+  "inventory_slot_pattern": "*optics*"
 }
 ```
+
+means:
+
+`Weapon_Base AND (TTC_* OR MMG_*) AND inventory slot matching *optics*`
+
+Singular and plural forms combine as OR:
 
 ```json
 {
   "action": "exclude",
-  "inventory_slot": "weaponOptics"
+  "class_pattern": "Vanilla_*",
+  "class_patterns": [
+    "TTC_*",
+    "MMG_*"
+  ]
 }
 ```
+
+means:
+
+`Vanilla_* OR TTC_* OR MMG_*`
+
+Exact slot alternatives are also supported:
+
+```json
+{
+  "action": "exclude",
+  "inventory_slots": [
+    "weaponOptics",
+    "pistolOptics"
+  ]
+}
+```
+
+Wildcard slot alternatives:
+
+```json
+{
+  "action": "exclude",
+  "inventory_slot_patterns": [
+    "*optics*",
+    "*scope*"
+  ]
+}
+```
+
+Inheritance alternatives:
 
 ```json
 {
   "action": "include",
-  "inventory_slot_pattern": "weaponOptics*"
+  "inherits_any": [
+    "Inventory_Base",
+    "OpticBase"
+  ]
 }
 ```
+
+Inheritance values must resolve to existing DayZ config classes. Empty strings inside selector arrays are invalid. Empty arrays do not count as selectors.
+
+A rule that applies to every configured target domain can omit `type`:
 
 ```json
 {
@@ -111,7 +196,7 @@ Examples:
 }
 ```
 
-The final example applies to every configured target because omitted `type` is normalized to `all`.
+Omitted `type` is normalized to `all`.
 
 ## Optics, lights and other functional items
 
@@ -144,10 +229,13 @@ PaintZ validates a detached candidate config and swaps it atomically only after 
 
 Policy decisions are cached per runtime classname. This remains correct for slot selectors because declared compatible `inventorySlot` values are class/config data, not per-instance attachment state.
 
+The server synchronizes both singular selectors and plural selector arrays to clients so policy evaluation remains identical on both sides.
+
 ## Troubleshooting
 
 - Use strict JSON; comments and trailing commas are invalid.
 - Put a narrower exception after a broad rule because the last match wins.
+- Remember: different selector groups in one rule are AND; alternatives inside one group are OR.
 - `include` never bypasses hidden-selection safety.
 - An item can be domain-relevant but technically unsupported if PaintZ cannot infer a safe body selection.
 - If a modded attachment is not becoming relevant, inspect its actual declared `inventorySlot[]` values and match those instead of guessing from its classname.
