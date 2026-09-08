@@ -15,7 +15,7 @@ git branch -a
 
 Identify the branch that the requested work actually depends on before editing. Do not assume `main` is the correct base when the task explicitly extends unmerged PaintZ work.
 
-For the current persistence-era PaintZ work, `feature/universal-paint-persistence` is the shared dependency base until that work is merged or deliberately replaced by a newer integration base.
+`main` is the authoritative shared integration base. New independent work should normally branch from current `main`. Base new work on another feature branch only when it explicitly depends on unmerged work from that branch; once that dependency is merged, `main` supersedes it as the shared base.
 
 ## Shared infrastructure must live on the dependency base
 
