@@ -37,8 +37,8 @@ modded class ItemBase
         {
             float selectedScale = scalePercent * 0.01;
             string logText = "pattern_scale target=" + GetType();
-            logText += " max_dimension_m=" + maxDimensionMeters;
-            logText += " scale=" + selectedScale;
+            logText += " max_dimension_m=" + maxDimensionMeters.ToString();
+            logText += " scale=" + selectedScale.ToString();
             PaintZ_PaintLog.Info(logText);
         }
 
