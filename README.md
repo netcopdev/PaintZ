@@ -2,13 +2,13 @@
 
 PaintZ is a generic DayZ runtime painting framework. Compatible inventory items become paintable from their runtime type/model data and server JSON policy, without per-class compatibility code.
 
-Weapons and detachable magazines are the shipped default domains, not hard-coded architectural categories. Additional ordinary `ItemBase`-derived inventory families should be enableable through `paintz_items.json` alone when their models expose a safe paintable hidden selection.
+Weapons, magazines and weapon attachments are policy data, not hard-coded architectural categories. Additional ordinary `ItemBase`-derived inventory families should be enableable through `paintz_items.json` alone when their models expose a safe paintable hidden selection.
 
 ## Persistence
 
 PaintZ requires **Community Framework (CF)** and uses CF ModStorage for logical paint persistence.
 
-Persistence lives once at the shared `ItemBase` level. There are no separate weapon or magazine PaintZ persistence implementations. This keeps future categories on the same state/persistence path and avoids unsafe insertion of PaintZ bytes into specialized native serializer streams.
+Persistence lives once at the shared `ItemBase` level. There are no separate weapon, magazine or attachment PaintZ persistence implementations. This keeps future categories on the same state/persistence path and avoids unsafe insertion of PaintZ bytes into specialized native serializer streams.
 
 If PaintZ is temporarily unloaded while CF remains loaded, CF preserves PaintZ's opaque ModStorage payload across saves. Removing CF as well is outside the persistence guarantee. See `docs/PERSISTENCE_NOTES.md`.
 
@@ -20,7 +20,20 @@ Server administrators configure relevance and new-paint eligibility in:
 
 PaintZ creates this file from `config/paintz_items.default.json` on first startup and never overwrites an existing administrator copy. Operational help is copied to `$profile:PaintZ/paintz_items_README.txt`.
 
-Domains support DayZ base/config types and classname wildcards. Ordered include/exclude rules support generic type scoping rather than a closed weapon/magazine enum. Legacy version-1 `weapon` / `magazine` rule aliases remain accepted.
+Domains support:
+
+- DayZ base/config types;
+- classname wildcards;
+- exact declared `inventorySlot` values;
+- wildcard matching over declared `inventorySlot` values.
+
+Slot matching uses the target class's declared compatible slots, not the item's current attachment state, so loose stocks, handguards, suppressors, optics and flashlights can be selected by policy while lying on the ground.
+
+Ordered include/exclude rules support the same generic model: type is optional scope and rules may select by classname, inheritance, exact slot or slot wildcard. Legacy version-1 `weapon` / `magazine` rule aliases remain accepted.
+
+The bundled default includes weapons, detachable magazines, common weapon/pistol/suppressor attachment slot families, and `SmallProtectorCase`.
+
+PaintZ does not hard-exclude sensible item families such as optics or flashlights. If an eligible model exposes a safe body/camo/housing selection, it may paint. Clearly functional surfaces such as glass, lenses, reticles, displays and emissive elements remain protected by the model-safety heuristic.
 
 Policy affects new painting/repainting only. Existing painted items remain painted and strippable even after exclusion or domain removal.
 
@@ -43,7 +56,7 @@ No item replacement or classname change occurs.
 
 - `config.cpp` — mod registration, CF dependency/storage version, generated paint declarations.
 - `config/paintz_items.default.json` — shipped default domains/rules.
-- `Scripts/4_World/PaintZ/Policy/` — generic domain/rule policy.
+- `Scripts/4_World/PaintZ/Policy/` — generic type/class/declared-slot domain and rule policy.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_ItemPaintState.c` — shared inventory-item paint state, synchronization and CF persistence hooks.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_PaintPersistence.c` — CF ModStorage codec and post-load restoration helpers.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_PaintInspector.c` — runtime hidden-selection inspection.

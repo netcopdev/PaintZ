@@ -17,22 +17,29 @@ A release is accepted only when all mandatory checks pass.
 - [ ] PaintZ state, synchronization and persistence are implemented once on the shared `ItemBase` path.
 - [ ] No PaintZ weapon-specific persistence hook exists.
 - [ ] No PaintZ magazine-specific persistence hook exists.
-- [ ] `PaintZ_PaintTarget` does not dispatch paint state by weapon/magazine category.
-- [ ] Policy code does not use a closed weapon/magazine enum as the extensibility mechanism.
+- [ ] No PaintZ attachment/optic/light-specific persistence hook exists.
+- [ ] `PaintZ_PaintTarget` does not dispatch paint state by category.
+- [ ] Policy code does not use a closed weapon/magazine/attachment enum as the extensibility mechanism.
 - [ ] A non-weapon/non-magazine `ItemBase` family can be enabled by JSON only and receives the same state/persistence behavior without script changes.
 - [ ] No per-class compatibility registry or painted subclasses exist.
 
 ## Runtime policy
 
 - [ ] Missing runtime JSON is created from the bundled default; existing admin files are not overwritten.
-- [ ] Default domains are weapon + detachable magazine, but additional valid DayZ base classes work without code changes.
+- [ ] Domains support arbitrary valid DayZ base/config classes without code changes.
+- [ ] Domains support exact `inventory_slot` and wildcard `inventory_slot_pattern` selectors.
+- [ ] Slot matching reads the target class's declared compatible `inventorySlot` values, not its current attachment position.
+- [ ] A loose stock/handguard/suppressor/optic/flashlight can match its declared slot family while on the ground.
+- [ ] Domain fields are AND and separate domain entries are OR.
 - [ ] `type` in rules accepts arbitrary valid DayZ base/config classes.
+- [ ] Rules support exactly one selector from `class_pattern`, `inherits`, `inventory_slot`, or `inventory_slot_pattern`.
 - [ ] Legacy version-1 `weapon` / `magazine` aliases remain accepted.
 - [ ] Omitted rule `type` behaves as `all`.
 - [ ] Ordered rules remain last-match-wins.
-- [ ] `*` and `?` matching is case-insensitive and deterministic.
+- [ ] `*` and `?` matching is case-insensitive and deterministic for both class and slot patterns.
 - [ ] Failed reload retains the last-known-good policy.
 - [ ] Excluding or removing a domain from an already-painted item does not remove its finish or block stripping.
+- [ ] The bundled default includes weapon/magazine domains, common weapon/pistol/suppressor slot families and `SmallProtectorCase`, with no blanket crossbow exclusion.
 
 ## CF persistence
 
@@ -53,8 +60,10 @@ A release is accepted only when all mandatory checks pass.
 ## Selection / strip regression
 
 - [ ] Known-good weapon and magazine fixtures still paint and strip.
-- [ ] At least one configured attachment/clothing/container fixture paints and strips without any category-specific PaintZ code.
-- [ ] Optics/lens/display/light selections remain blocked by the global safety heuristic.
+- [ ] At least one configured attachment and `SmallProtectorCase` paint and strip without category-specific PaintZ code.
+- [ ] At least one optic or flashlight with a safe body/camo/housing selection can paint.
+- [ ] An optic/light exposing only functional glass/lens/reticle/display/emissive surfaces remains safely unsupported.
+- [ ] Category words such as `optic` or `light` alone do not blacklist an otherwise safe body selection.
 - [ ] Paint cans never offer Strip Paint; the dedicated stripper does.
 - [ ] Ruined cans and ruined targets cannot receive new paint.
 

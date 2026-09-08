@@ -195,6 +195,8 @@ class PaintZ_ItemPolicy
             rpc.Write(rule.type);
             rpc.Write(rule.class_pattern);
             rpc.Write(rule.inherits);
+            rpc.Write(rule.inventory_slot);
+            rpc.Write(rule.inventory_slot_pattern);
         }
 
         rpc.Write(s_ActiveConfig.domains.Count());
@@ -203,6 +205,8 @@ class PaintZ_ItemPolicy
             PaintZ_TargetDomainRule domain = s_ActiveConfig.domains.Get(domainIndex);
             rpc.Write(domain.type);
             rpc.Write(domain.class_pattern);
+            rpc.Write(domain.inventory_slot);
+            rpc.Write(domain.inventory_slot_pattern);
         }
 
         rpc.Send(player, RPC_POLICY_SYNC, true, identity);
@@ -228,7 +232,7 @@ class PaintZ_ItemPolicy
         for (int i = 0; i < ruleCount; i++)
         {
             PaintZ_ItemPolicyRule rule = new PaintZ_ItemPolicyRule();
-            if (!ctx.Read(rule.action) || !ctx.Read(rule.type) || !ctx.Read(rule.class_pattern) || !ctx.Read(rule.inherits))
+            if (!ctx.Read(rule.action) || !ctx.Read(rule.type) || !ctx.Read(rule.class_pattern) || !ctx.Read(rule.inherits) || !ctx.Read(rule.inventory_slot) || !ctx.Read(rule.inventory_slot_pattern))
             {
                 Error("client policy sync was truncated at rule=" + i);
                 return false;
@@ -247,7 +251,7 @@ class PaintZ_ItemPolicy
         for (int domainIndex = 0; domainIndex < domainCount; domainIndex++)
         {
             PaintZ_TargetDomainRule domain = new PaintZ_TargetDomainRule();
-            if (!ctx.Read(domain.type) || !ctx.Read(domain.class_pattern))
+            if (!ctx.Read(domain.type) || !ctx.Read(domain.class_pattern) || !ctx.Read(domain.inventory_slot) || !ctx.Read(domain.inventory_slot_pattern))
             {
                 Error("client policy sync was truncated at domain=" + domainIndex);
                 return false;
@@ -375,26 +379,40 @@ class PaintZ_ItemPolicy
             return false;
         }
 
-        bool hasPattern = rule.class_pattern != "";
-        bool hasInheritance = rule.inherits != "";
-        if (hasPattern == hasInheritance)
+        int selectorCount;
+        if (rule.class_pattern != "")
+            selectorCount++;
+        if (rule.inherits != "")
+            selectorCount++;
+        if (rule.inventory_slot != "")
+            selectorCount++;
+        if (rule.inventory_slot_pattern != "")
+            selectorCount++;
+
+        if (selectorCount != 1)
         {
-            error = "exactly one selector is required: class_pattern or inherits";
+            error = "exactly one selector is required: class_pattern, inherits, inventory_slot, or inventory_slot_pattern";
             return false;
         }
 
-        if (hasPattern)
-        {
+        if (rule.class_pattern != "")
             rule.class_pattern.ToLower();
-            return true;
+
+        if (rule.inherits != "")
+        {
+            rule.inherits.ToLower();
+            if (!InheritanceClassExists(rule.inherits))
+            {
+                error = "inherits class does not exist: " + rule.inherits;
+                return false;
+            }
         }
 
-        rule.inherits.ToLower();
-        if (!InheritanceClassExists(rule.inherits))
-        {
-            error = "inherits class does not exist: " + rule.inherits;
-            return false;
-        }
+        if (rule.inventory_slot != "")
+            rule.inventory_slot.ToLower();
+        if (rule.inventory_slot_pattern != "")
+            rule.inventory_slot_pattern.ToLower();
+
         return true;
     }
 
@@ -414,9 +432,9 @@ class PaintZ_ItemPolicy
             return false;
         }
 
-        if (domain.type == "" && domain.class_pattern == "")
+        if (domain.type == "" && domain.class_pattern == "" && domain.inventory_slot == "" && domain.inventory_slot_pattern == "")
         {
-            error = "requires type, class_pattern, or both";
+            error = "requires type, class_pattern, inventory_slot, inventory_slot_pattern, or a combination";
             return false;
         }
 
@@ -427,6 +445,8 @@ class PaintZ_ItemPolicy
         }
 
         domain.class_pattern.ToLower();
+        domain.inventory_slot.ToLower();
+        domain.inventory_slot_pattern.ToLower();
         return true;
     }
 
@@ -454,6 +474,9 @@ class PaintZ_ItemPolicy
             return false;
 
         if (domain.class_pattern != "" && !GlobMatchesNormalized(domain.class_pattern, normalizedClass))
+            return false;
+
+        if (!InventorySlotMatches(target, domain.inventory_slot, domain.inventory_slot_pattern))
             return false;
 
         return true;
@@ -517,8 +540,12 @@ class PaintZ_ItemPolicy
             bool selectorMatches;
             if (rule.class_pattern != "")
                 selectorMatches = GlobMatchesNormalized(rule.class_pattern, normalizedClass);
-            else
+            else if (rule.inherits != "")
                 selectorMatches = GetGame().IsKindOf(className, rule.inherits);
+            else if (rule.inventory_slot != "")
+                selectorMatches = InventorySlotMatches(target, rule.inventory_slot, "");
+            else
+                selectorMatches = InventorySlotMatches(target, "", rule.inventory_slot_pattern);
 
             if (selectorMatches)
                 allowed = rule.action == "include";
@@ -535,6 +562,75 @@ class PaintZ_ItemPolicy
             return true;
 
         return DomainTypeMatches(target, className, ruleType);
+    }
+
+    protected static bool InventorySlotMatches(EntityAI target, string inventorySlot, string inventorySlotPattern)
+    {
+        if (inventorySlot == "" && inventorySlotPattern == "")
+            return true;
+
+        TStringArray slots = GetDeclaredInventorySlots(target);
+        if (!slots || slots.Count() == 0)
+            return false;
+
+        bool exactMatches = inventorySlot == "";
+        bool patternMatches = inventorySlotPattern == "";
+
+        for (int i = 0; i < slots.Count(); i++)
+        {
+            string normalizedSlot = slots.Get(i);
+            normalizedSlot.ToLower();
+
+            if (!exactMatches && normalizedSlot == inventorySlot)
+                exactMatches = true;
+            if (!patternMatches && GlobMatchesNormalized(inventorySlotPattern, normalizedSlot))
+                patternMatches = true;
+
+            if (exactMatches && patternMatches)
+                return true;
+        }
+
+        return false;
+    }
+
+    protected static TStringArray GetDeclaredInventorySlots(EntityAI target)
+    {
+        TStringArray slots = new TStringArray();
+        if (!target || !GetGame())
+            return slots;
+
+        string className = target.GetType();
+        string configRoot = GetConfigRootForClass(className);
+        if (configRoot == "")
+            return slots;
+
+        string inventorySlotPath = configRoot + " " + className + " inventorySlot";
+        GetGame().ConfigGetTextArray(inventorySlotPath, slots);
+
+        // inventorySlot is conventionally an array, but tolerate a single text
+        // value for third-party configs without making slot matching class-specific.
+        if (slots.Count() == 0)
+        {
+            string singleSlot;
+            if (GetGame().ConfigGetText(inventorySlotPath, singleSlot) && singleSlot != "")
+                slots.Insert(singleSlot);
+        }
+
+        return slots;
+    }
+
+    protected static string GetConfigRootForClass(string className)
+    {
+        if (!GetGame())
+            return "";
+
+        if (GetGame().ConfigIsExisting("CfgWeapons " + className))
+            return "CfgWeapons";
+        if (GetGame().ConfigIsExisting("CfgMagazines " + className))
+            return "CfgMagazines";
+        if (GetGame().ConfigIsExisting("CfgVehicles " + className))
+            return "CfgVehicles";
+        return "";
     }
 
     protected static bool GlobMatchesNormalized(string pattern, string value)

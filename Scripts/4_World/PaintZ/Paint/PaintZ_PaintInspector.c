@@ -18,7 +18,9 @@ class PaintZ_PaintInspector
             return result;
         }
 
-        // First pass: exact globally preferred body-like names.
+        // First pass: exact globally preferred body-like names. Item categories
+        // are not blocked here: an optic, flashlight, suppressor, container, or
+        // any other ItemBase may paint when it exposes a safe body selection.
         for (int i = 0; i < selections.Count(); i++)
         {
             string candidate = selections.Get(i);
@@ -44,8 +46,8 @@ class PaintZ_PaintInspector
         }
 
         // Conservative generic fallback: if the model exposes exactly one
-        // selection, accept it unless its name clearly describes a non-body
-        // visual such as glass/reticle/display/light.
+        // selection, accept it unless its name clearly describes a functional
+        // surface such as glass, a reticle, a display, or an emissive element.
         if (selections.Count() == 1)
         {
             string onlyName = selections.Get(0);
@@ -78,6 +80,9 @@ class PaintZ_PaintInspector
             return true;
 
         if (name == "body2" || name == "receiver" || name == "weapon" || name == "mag" || name == "magazine")
+            return true;
+
+        if (name == "housing" || name == "shell" || name == "frame")
             return true;
 
         return false;
@@ -137,15 +142,16 @@ class PaintZ_PaintInspector
 
     protected static bool IsBlockedName(string name)
     {
+        // Block functional surfaces, not item categories. Broad words such as
+        // "optic" and "light" are intentionally not blocked because they can
+        // legitimately appear in housing/body selection names.
         TStringArray blocked = {
             "glass",
             "lens",
             "reticle",
-            "optic",
             "display",
             "screen",
             "led",
-            "light",
             "emissive",
             "glow",
             "flame"

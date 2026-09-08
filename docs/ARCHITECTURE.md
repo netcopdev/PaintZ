@@ -4,11 +4,11 @@
 
 PaintZ is a generic runtime painting framework for DayZ inventory items.
 
-**Target categories are configuration, not code.** Weapons and detachable magazines are only the shipped default domains. Adding another ordinary inventory-item family must require JSON configuration only, provided the target is `ItemBase`-derived and exposes a safe paintable hidden selection.
+**Target categories and attachment families are configuration, not code.** Weapons and detachable magazines are historical/default domains, not architectural special cases. Adding another ordinary inventory-item family must require JSON configuration only, provided the target is `ItemBase`-derived and exposes a safe paintable hidden selection.
 
-Examples of intended future JSON-only expansion include suppressors, handguards, stocks, clothing, helmets, backpacks, containers and tools.
+Intended JSON-only expansion includes suppressors, muzzle devices, handguards, stocks, grips, bipods, optics, flashlights, clothing, helmets, backpacks, containers and tools.
 
-The core must not gain a new persistence/state/network implementation for each category.
+The core must not gain a new persistence/state/network implementation for each category or slot family.
 
 ## Runtime layers
 
@@ -22,7 +22,7 @@ A domain can disappear after an item was painted. The existing finish must still
 
 ## Generic item state
 
-`PaintZ_ItemPaintState.c` extends `ItemBase` once. The same state path is used by weapons, magazines and every future supported `ItemBase` descendant:
+`PaintZ_ItemPaintState.c` extends `ItemBase` once. The same state path is used by weapons, magazines, attachments and every future supported `ItemBase` descendant:
 
 - canonical finish ID;
 - resolved paint selection;
@@ -43,6 +43,7 @@ Consequences:
 
 - no weapon-specific persistence hook;
 - no magazine-specific persistence hook;
+- no attachment-specific persistence hook;
 - no persistence code change when another normal inventory category is enabled;
 - pre-PaintZ items have no PaintZ context and load normally;
 - when PaintZ is temporarily absent but CF remains loaded, CF preserves PaintZ's opaque unloaded-mod payload across subsequent saves;
@@ -52,21 +53,39 @@ Visual restoration is deferred one call-queue turn after CF load so model/hidden
 
 ## Runtime item policy
 
-Domains are a positive OR-list. Each domain may contain:
+Domains are a positive OR-list. Each domain may contain any combination of:
 
 - `type`: a DayZ base/config class;
 - `class_pattern`: a case-insensitive `*` / `?` classname glob;
-- or both, in which case both must match.
+- `inventory_slot`: an exact declared compatible `inventorySlot`;
+- `inventory_slot_pattern`: a case-insensitive `*` / `?` glob over declared compatible `inventorySlot` values.
 
-The shipped defaults remain `Weapon_Base` and `Magazine_Base`, but these names are data, not special PaintZ architecture.
+All supplied fields inside one domain are AND. Separate domain objects are OR.
 
-Rules are evaluated top-to-bottom and the last match wins. A rule's optional `type` is also generic: it may be `all`, a valid DayZ base/config class, or the legacy aliases `weapon` / `magazine` for compatibility with existing version-1 configs. Rules use exactly one selector: `class_pattern` or `inherits`.
+Slot matching uses the target class's **declared compatible slot data**, not the item's current attachment state. That means a stock, optic, suppressor or flashlight lying loose on the ground still matches the slots its config says it can occupy. PaintZ reads inherited slot data from the target's actual config root and does not maintain a classname-to-slot registry.
+
+The bundled default config now includes weapon/magazine domains, common weapon/pistol/suppressor slot families, and `SmallProtectorCase`. These values are data, not special PaintZ architecture.
+
+Rules are evaluated top-to-bottom and the last match wins. A rule's optional `type` is generic: it may be `all`, a valid DayZ base/config class, or legacy aliases `weapon` / `magazine` for compatibility with existing version-1 configs.
+
+Each rule uses exactly one selector from:
+
+- `class_pattern`;
+- `inherits`;
+- `inventory_slot`;
+- `inventory_slot_pattern`.
+
+No new rule/category enum should be needed when a third-party mod introduces another slot family.
 
 ## Selection safety
 
-PaintZ discovers compatibility from the live target object. It never needs a registry of supported classnames.
+PaintZ discovers compatibility from the actual target object/model. It never needs a registry of supported classnames and it does not hard-exclude item families such as optics or flashlights.
 
-Preferred globally plausible selections include `camo`, `zbytek`, `body`, `receiver`, `weapon`, `mag` and `magazine`. Obvious glass, lens, optic, reticle, display, screen, LED, light, emissive, glow and flame selections are blocked. If several selections remain ambiguous, PaintZ rejects the target instead of guessing.
+Preferred globally plausible selections include `camo`, `zbytek`, `body`, `receiver`, `weapon`, `mag`, `magazine`, `housing`, `shell` and `frame`.
+
+Functional surfaces remain protected. Selection names indicating glass, lens, reticle, display, screen, LED, emissive/glow or flame surfaces are blocked. Broad category words such as `optic` and `light` are **not** blocked by themselves, because names such as `optic_body` or `flashlight_body` may represent legitimate housings.
+
+If several selections remain ambiguous, PaintZ rejects the target instead of guessing. Consequently, two optics from different mods may behave differently: one can paint because it exposes a safe body/camo/housing selection while another remains unsupported because it exposes only lens/reticle surfaces.
 
 ## Object preservation
 

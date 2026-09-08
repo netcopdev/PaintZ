@@ -4,13 +4,11 @@
   "default_action": "allow",
   "domains": [
     { "type": "Weapon_Base" },
-    { "type": "Magazine_Base" }
+    { "type": "Magazine_Base" },
+    { "inventory_slot_pattern": "weapon*" },
+    { "inventory_slot_pattern": "pistol*" },
+    { "inventory_slot_pattern": "suppressor*" },
+    { "class_pattern": "SmallProtectorCase" }
   ],
-  "rules": [
-    {
-      "action": "exclude",
-      "type": "Weapon_Base",
-      "class_pattern": "*crossbow*"
-    }
-  ]
+  "rules": []
 }

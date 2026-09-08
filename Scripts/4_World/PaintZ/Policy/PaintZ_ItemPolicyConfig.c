@@ -4,12 +4,16 @@ class PaintZ_ItemPolicyRule
     string type;
     string class_pattern;
     string inherits;
+    string inventory_slot;
+    string inventory_slot_pattern;
 };
 
 class PaintZ_TargetDomainRule
 {
     string type;
     string class_pattern;
+    string inventory_slot;
+    string inventory_slot_pattern;
 };
 
 class PaintZ_ItemPolicyConfig
