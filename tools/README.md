@@ -8,6 +8,10 @@ and separate clean coating assets with ImageToPAA. Can artwork is exported to
 `-ImageToPAA` when DayZ Tools is installed outside the standard Steam locations.
 `-SkipPaintZGen` is available for build diagnostics with already-generated outputs.
 
+Before invoking AddonBuilder, the wrapper copies the project to a temporary clean
+staging directory without Git metadata, tool caches, or earlier build output. This
+avoids AddonBuilder's legacy source-copy failure on long internal repository paths.
+
 If your existing DayZ mod build workflow is already established, use that instead and let Codex adapt/remove this helper.
 
 ## Local safe sandbox
