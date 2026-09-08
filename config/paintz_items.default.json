@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "reload_seconds": 60,
+  "default_action": "allow",
+  "rules": [
+    {
+      "action": "exclude",
+      "type": "weapon",
+      "class_pattern": "*crossbow*"
+    }
+  ]
+}

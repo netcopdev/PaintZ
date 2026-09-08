@@ -32,7 +32,7 @@ class ActionPaintZPaintBase : ActionContinuousBase
     override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
     {
         PaintZ_SprayCanBase spray = PaintZ_SprayCanBase.Cast(item);
-        if (!spray || spray.GetPaintZPaintCode() != GetPaintCode() || !target)
+        if (!spray || spray.GetPaintZPaintCode() != GetPaintCode() || !target || spray.IsRuined())
             return false;
 
         if (spray.HasQuantity() && spray.GetQuantity() < PaintZ_PaintConstants.SPRAY_COST)
@@ -40,6 +40,9 @@ class ActionPaintZPaintBase : ActionContinuousBase
 
         EntityAI entity = PaintZ_PaintTarget.ResolveActionTarget(target);
         TraceCondition(item, target, entity);
+        if (!entity || entity.IsRuined() || !PaintZ_ItemPolicy.IsPaintApplicationAllowed(entity))
+            return false;
+
         PaintZ_PaintInspectionResult inspection = PaintZ_PaintInspector.Inspect(entity);
         return inspection.m_Paintable && inspection.m_SelectionIndex >= 0;
     }
@@ -56,6 +59,33 @@ class ActionPaintZPaintBase : ActionContinuousBase
 
         if (!entity || !spray || !player || spray.GetPaintZPaintCode() != paintCode)
             return;
+
+        if (spray.IsRuined())
+        {
+            player.MessageStatus("Cannot Paint: Spray can is ruined");
+            return;
+        }
+
+        if (entity.IsRuined())
+        {
+            player.MessageStatus("Cannot Paint: Item is ruined");
+            return;
+        }
+
+        if (spray.HasQuantity() && spray.GetQuantity() < PaintZ_PaintConstants.SPRAY_COST)
+        {
+            player.MessageStatus("Not enough paint remaining.");
+            return;
+        }
+
+        // The cached policy may have changed while this continuous action was
+        // running. Check before inspection, mutation, and consumption.
+        if (!PaintZ_ItemPolicy.IsPaintApplicationAllowed(entity))
+        {
+            PaintZ_PaintLog.Info("application rejected target=" + entity.GetType() + " reason=Excluded by runtime item policy");
+            player.MessageStatus("Cannot Paint: Item is excluded by server policy");
+            return;
+        }
 
         // Re-inspect on the server at completion; do not trust the client's
         // earlier action-condition result.

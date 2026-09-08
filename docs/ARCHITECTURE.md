@@ -11,8 +11,25 @@ PaintZ must discover compatibility from the live target object, not from a maint
 3. `PaintZ_PaintInspector` reads `target.GetHiddenSelections()`.
 4. Global selection-name heuristics choose a likely body/camo selection.
 5. If no safe choice exists, the target is rejected and the player is informed.
-6. Painting stores the `PZ-T-ID` product code as its session identity and calls `SetObjectTexture()` on the selected hidden-selection index.
-7. The server sends that product code and selection index to connected clients, which reapply the same finish-rendered surface asset.
+6. The cached server-side item policy determines whether a new application is allowed. It performs no disk I/O in the action path.
+7. Painting stores the `PZ-T-ID` product code as its session identity and calls `SetObjectTexture()` on the selected hidden-selection index.
+8. The server sends that product code and selection index to connected clients, which reapply the same finish-rendered surface asset.
+
+## Runtime item policy
+
+`$profile:PaintZ/paintz_items.json` is an administrative policy for new paint
+applications and repainting. It is loaded atomically from PaintZ's perspective:
+a detached candidate is parsed and validated before replacing the active cached
+policy. Failed periodic reloads retain the last-known-good policy. The runtime
+JSON contains only configuration data; PaintZ creates the non-overwritten
+`paintz_items_README.txt` beside it for operational help. The complete contract
+is documented in `docs/item-policy.md`.
+
+The policy is deliberately separate from paint state. Excluding a class never
+strips or resets existing paint, and stripping bypasses the policy. Ordered
+rules use `include`/`exclude`, `weapon`/`magazine`/`all`, and exactly one of a
+case-insensitive glob `class_pattern` or runtime config-hierarchy `inherits`
+selector. The last matching rule wins over `default_action`.
 
 ## Why no per-weapon definitions
 

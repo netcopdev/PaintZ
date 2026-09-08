@@ -89,6 +89,7 @@ class CustomMission: MissionServer
         }
 
         KeepPlayerSafe(player);
+        __PAINTZ_PLAYER_SMOKE_TEST__
         player.MessageStatus("PaintZ runway sandbox: primary paint and stripper equipped; every generated paint is staged nearby.");
     }
 
@@ -108,6 +109,7 @@ class CustomMission: MissionServer
         int magazineCount = SpawnVanillaConfigFixtures(fixtureAnchor, "CfgMagazines", false);
         SpawnOptionalThirdPartyFixture(fixtureAnchor);
 
+        __PAINTZ_POLICY_SMOKE_TEST__
         Print("[PaintZ][Sandbox] Vanilla weapon fixtures=" + weaponCount + " magazine fixtures=" + magazineCount);
         Print("[PaintZ][Sandbox] READY - dynamic vanilla fixtures spawned; no hive/CE; clear noon");
     }

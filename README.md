@@ -11,6 +11,16 @@ Every finish in `tools/paintzgen/paints.json` is available through the same runt
 Persistence is intentionally deferred. See `docs/PERSISTENCE_NOTES.md`.
 
 Paint applies at full opacity and another paint can can overwrite the finish.
+
+Server administrators can control new paint applications with
+`$profile:PaintZ/paintz_items.json`. PaintZ creates that file from the bundled
+`config/paintz_items.default.json` template on first startup and never
+overwrites an existing administrator copy. It also creates
+`$profile:PaintZ/paintz_items_README.txt` without overwriting an existing file.
+The JSON contains configuration only; see the adjacent operational README and
+`docs/item-policy.md` for reload, wildcard, inheritance, precedence, and failure
+semantics. Excluding a class hides Paint actions, never removes an existing
+finish, and never blocks Strip Paint.
 Five-coat blending and color mixing
 are not implemented. See `docs/PAINT_COATS_FEASIBILITY.md` for the rendering limitation.
 

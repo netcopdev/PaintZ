@@ -19,7 +19,8 @@ class ActionPaintZCannotPaint : ActionSingleUseBase
 
     override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
     {
-        if (!PaintZ_SprayCanBase.Cast(item) || !target)
+        PaintZ_SprayCanBase spray = PaintZ_SprayCanBase.Cast(item);
+        if (!spray || !target)
             return false;
 
         EntityAI entity = PaintZ_PaintTarget.ResolveActionTarget(target);
@@ -27,7 +28,7 @@ class ActionPaintZCannotPaint : ActionSingleUseBase
             return false;
 
         PaintZ_PaintInspectionResult inspection = PaintZ_PaintInspector.Inspect(entity);
-        return !inspection.m_Paintable;
+        return spray.IsRuined() || !inspection.m_Paintable || entity.IsRuined() || !PaintZ_ItemPolicy.IsPaintApplicationAllowed(entity);
     }
 
     override void OnExecuteServer(ActionData action_data)
@@ -40,6 +41,25 @@ class ActionPaintZCannotPaint : ActionSingleUseBase
 
         if (!entity || !player)
             return;
+
+        PaintZ_SprayCanBase spray = PaintZ_SprayCanBase.Cast(action_data.m_MainItem);
+        if (!spray || spray.IsRuined())
+        {
+            player.MessageStatus("Cannot Paint: Spray can is ruined");
+            return;
+        }
+
+        if (entity.IsRuined())
+        {
+            player.MessageStatus("Cannot Paint: Item is ruined");
+            return;
+        }
+
+        if (!PaintZ_ItemPolicy.IsPaintApplicationAllowed(entity))
+        {
+            player.MessageStatus("Cannot Paint: Item is excluded by server policy");
+            return;
+        }
 
         PaintZ_PaintInspectionResult inspection = PaintZ_PaintInspector.Inspect(entity);
         player.MessageStatus("This item cannot be painted. " + inspection.m_Reason + ".");
