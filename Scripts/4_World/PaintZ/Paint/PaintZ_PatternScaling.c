@@ -244,7 +244,7 @@ class PaintZ_PatternScaling
         if (scalePercent <= 0 || scalePercent > 1000)
             return false;
 
-        float normalizedScale = scalePercent / 100.0;
+        float normalizedScale = scalePercent * 0.01;
         if (Math.AbsFloat(normalizedScale - scale) > 0.0001)
             return false;
 
