@@ -22,7 +22,7 @@ Painted items expose their PaintZ finish through DayZ's normal dynamic name and 
 
 Its existing description is preserved and receives one additional line:
 
-`Finish: Flecktarn (PZ-C-FLK)`
+`Finish: Flecktarn (PZ-C-FTN)`
 
 PaintZ calls the previous `NameOverride` / `DescriptionOverride` implementation first and decorates that result, so compatible third-party dynamic names and descriptions remain intact. Stripping the item clears the PaintZ logical finish state, so the extra name suffix and description line disappear automatically. This changes only UI presentation; it does not change the classname or persistence identity.
 
