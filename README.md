@@ -4,6 +4,30 @@ PaintZ is a generic DayZ runtime painting framework. Compatible inventory items 
 
 Weapons, magazines and weapon attachments are policy data, not hard-coded architectural categories. Additional ordinary `ItemBase`-derived inventory families should be enableable through `paintz_items.json` alone when their models expose a safe paintable hidden selection.
 
+PaintZ core does not own individual paint finishes. Finish content is supplied by Paint Pack API packs such as the official [PaintZ Standard Pack](https://github.com/netcopdev/PaintZ-Standard-Pack).
+
+## Paint Pack API
+
+Paint packs register one namespace owner plus their finishes through `CfgPaintZPacks` and `CfgPaintZFinishes`. Each complete short ID is both the runtime identity and persisted logical identity:
+
+```text
+<PREFIX>-<TYPE>-<SUFFIX>
+```
+
+Examples:
+
+```text
+PZ-C-FTN
+PZ-S-FDE
+NCP-C-FTN
+```
+
+PaintZ validates the actually loaded mod set at startup. Duplicate namespace owners disable that namespace; duplicate complete finish IDs disable that finish; there is no first-loaded-wins or last-loaded-wins overwrite behavior.
+
+The official Standard Pack owns `PZ`. All valid 2-3 character prefixes beginning with `PZ` are reserved for official PaintZ content.
+
+See `docs/PAINT_PACK_API.md` and `docs/PAINT_PACK_CONFIG_V1.md`.
+
 ## Persistence
 
 PaintZ requires **Community Framework (CF)** and uses CF ModStorage for logical paint persistence.
@@ -13,6 +37,8 @@ Persistence lives once at the shared `ItemBase` level. There are no separate wea
 If PaintZ is temporarily unloaded while CF remains loaded, CF preserves PaintZ's opaque ModStorage payload across saves. Removing CF as well is outside the persistence guarantee. See `docs/PERSISTENCE_NOTES.md`.
 
 PaintZ persists only the canonical finish ID. Derived pattern scale, texture path and selection index are not persistent data.
+
+If a paint pack is temporarily missing or a finish cannot currently resolve, the stored finish ID remains intact. The item falls back to its original visual where possible and remains strippable; if the pack later returns, the finish can resolve again.
 
 ## Painted item identification
 
@@ -53,17 +79,19 @@ Policy affects new painting/repainting only. Existing painted items remain paint
 
 ## Pattern scale normalization
 
-Patterned finishes can use generated scale variants so the apparent camouflage geometry is less dependent on the physical size of the target model.
+Patterned finishes may declare multiple surface-scale variants so the apparent camouflage geometry is less dependent on the physical size of the target model.
 
 The server configuration is:
 
 `$profile:PaintZ/paintz_pattern_scaling.json`
 
-PaintZ measures the target's longest collision-box dimension and maps it to a generated scale variant. The bundled configuration defaults to 1x for every item; administrators can add size ranges and reload the file while the server is running.
+PaintZ measures the target's longest collision-box dimension and maps it to a scale percentage. It then uses that scale only if the active finish actually registered a corresponding surface; otherwise it falls back to the finish's 100% surface.
 
-The current generated scale options are:
+The official Standard Pack currently provides:
 
 `0.5x, 0.75x, 1x, 1.5x, 2x, 3x`
+
+Other paint packs may declare a different valid subset. PaintZ never constructs or assumes third-party texture paths.
 
 A config reload affects the next repaint/application only. It does not sweep through already-loaded painted items. On a later server restart/load, persisted items derive their scale again from the current mapping because only the finish ID is stored.
 
@@ -94,25 +122,27 @@ See `config/paintz_action_tuning_README.txt`.
 
 ## Runtime flow
 
-1. Player holds a PaintZ spray can or paint-stripper can.
-2. PaintZ resolves the targeted entity.
-3. JSON domains decide whether the target is relevant for new-paint interaction.
-4. Ordered policy rules decide whether new application is allowed.
-5. `PaintZ_PaintInspector` inspects the actual runtime hidden selections.
-6. A conservative global heuristic chooses a safe body-like selection or rejects the item.
-7. The action duration is derived linearly from the target's physical size and the synchronized action-tuning config.
-8. The server rechecks all conditions and required size-dependent consumable quantity when the action completes.
-9. For patterned finishes, the server derives a scale from the current scaling config and target collision-box size.
-10. PaintZ updates the existing object's shared `ItemBase` PaintZ state and calls `SetObjectTexture()`.
-11. The required size-dependent paint/stripper quantity is consumed from the applicator.
-12. Shared synchronization publishes the finish, selected surface and transient scale to clients.
-13. CF ModStorage preserves only the logical finish assignment through persistence.
+1. Player holds a spray can supplied by a registered PaintZ paint pack or the PaintZ core stripper can.
+2. The can exposes its complete finish ID through `paintzFinish`.
+3. PaintZ resolves that finish from the runtime registry.
+4. PaintZ resolves the targeted entity.
+5. JSON domains decide whether the target is relevant for new-paint interaction.
+6. Ordered policy rules decide whether new application is allowed.
+7. `PaintZ_PaintInspector` inspects the actual runtime hidden selections.
+8. A conservative global heuristic chooses a safe body-like selection or rejects the item.
+9. The action duration is derived linearly from the target's physical size and the synchronized action-tuning config.
+10. The server rechecks all conditions and required size-dependent consumable quantity when the action completes.
+11. For patterned finishes, the server derives a scale from the current scaling config and uses a surface explicitly registered by that finish.
+12. PaintZ updates the existing object's shared `ItemBase` PaintZ state and calls `SetObjectTexture()`.
+13. The required size-dependent paint/stripper quantity is consumed from the applicator.
+14. Shared synchronization publishes the finish, selected surface and transient scale to clients.
+15. CF ModStorage preserves only the logical finish assignment through persistence.
 
 No item replacement or classname change occurs.
 
 ## Project layout
 
-- `config.cpp` — mod registration, CF dependency/storage version, generated paint declarations.
+- `config.cpp` — PaintZ core registration, CF dependency/storage version, Paint Pack API discovery roots, non-spawnable common can base, and paint stripper.
 - `config/paintz_items.default.json` — shipped default domains/rules.
 - `config/paintz_pattern_scaling.default.json` — shipped default pattern-size mapping.
 - `config/paintz_pattern_scaling_README.txt` — runtime scaling configuration contract.
@@ -121,21 +151,26 @@ No item replacement or classname change occurs.
 - `Scripts/4_World/PaintZ/Policy/` — generic type/class/declared-slot domain and rule policy.
 - `Scripts/4_World/PaintZ/Actions/PaintZ_ActionTuning.c` — size-dependent action timing/usage, runtime reload and client synchronization.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_ItemPaintState.c` — shared inventory-item paint state, dynamic display decoration, synchronization and CF persistence hooks.
+- `Scripts/4_World/PaintZ/Paint/PaintZ_PaintPackRegistry.c` — namespace/finish discovery, validation, collision handling and asset lookup.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_PaintPersistence.c` — CF ModStorage codec and post-load restoration helpers.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_PatternScaling.c` — server-side size measurement, scale mapping and live config reload.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_PaintInspector.c` — runtime hidden-selection inspection.
-- `Scripts/4_World/PaintZ/Paint/PaintZ_PaintVisuals.c` — texture application/restoration.
+- `Scripts/4_World/PaintZ/Paint/PaintZ_PaintVisuals.c` — registry-backed texture application/restoration.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_PaintTarget.c` — generic paint/strip dispatch through `ItemBase`.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_PaintedState.c` — existing-paint lookup independent from policy.
+- `docs/PAINT_PACK_API.md` — authoritative Paint Pack API identity/interoperability contract.
+- `docs/PAINT_PACK_CONFIG_V1.md` — concrete DayZ config representation.
 - `docs/ARCHITECTURE.md` — architectural invariants and universality boundary.
 - `docs/PERSISTENCE_NOTES.md` — persistence design and acceptance matrix.
 - `docs/item-policy.md` — JSON contract.
 
-## Texture strategy
+## Finish content and PackKit
 
-Painted surfaces use clean generated color/pattern assets under `data/surfaces`; spray-can labels are separate assets under `data/cans`. PaintZ normally changes only the texture and leaves the target's material/RVMat behavior intact.
+PaintZ core deliberately contains no official finish catalogue, generated finish-specific spray cans, finish surface textures, or per-finish actions.
 
-`tools/paintzgen/paints.json` is the source of truth for finishes and generated pattern-scale variants. The 1x pattern surface retains the normal historical filename while non-1x variants use `_sNNN` percentage suffixes. Regenerate outputs with the supplied tooling rather than hand-editing generated files.
+Official content lives in `netcopdev/PaintZ-Standard-Pack`. Third-party authors can build equivalent packs using `netcopdev/PaintZ-PackKit` or by implementing the documented config contract manually.
+
+The runtime never requires PackKit. PackKit is an offline authoring/generation tool only.
 
 ## Universality boundary
 
