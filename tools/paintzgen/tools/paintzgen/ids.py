@@ -35,7 +35,7 @@ COMMON_SUGGESTIONS = {
     "WHITE": "WHT",
     "WOODLAND": "WDL",
     "DIGITAL WOODLAND": "DWD",
-    "FLECKTARN": "FLK",
+    "FLECKTARN": "FTN",
     "MULTICAM": "MTC",
     "DESERT DIGITAL": "DDT",
     "TIGER STRIPE": "TGR",
