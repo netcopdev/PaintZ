@@ -4,6 +4,7 @@ param(
     [string]$ImageToPAA
 )
 
+Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $generatorRoot = Join-Path $ProjectRoot "tools\paintzgen"
 $generator = Join-Path $generatorRoot "tools\generate_paints.py"
@@ -27,6 +28,7 @@ if ($python) {
         $pythonHasPillow = $false
     }
 }
+
 if ($pythonHasPillow) {
     & $python.Source $generator --clean
 }
@@ -35,71 +37,97 @@ else {
     if (-not $uv) {
         throw "paintzgen requires Python with Pillow. Install Python, or install uv so the build can run it."
     }
+
     New-Item -ItemType Directory -Force -Path $uvCache | Out-Null
     New-Item -ItemType Directory -Force -Path $uvPython | Out-Null
     $env:UV_CACHE_DIR = $uvCache
     $env:UV_PYTHON_INSTALL_DIR = $uvPython
     & $uv.Source run --with "Pillow>=10.0,<13" $generator --clean
 }
+
 if ($LASTEXITCODE -ne 0) {
     throw "paintzgen failed with exit code $LASTEXITCODE."
 }
 
 New-Item -ItemType Directory -Force -Path $canOutput | Out-Null
 New-Item -ItemType Directory -Force -Path $surfaceOutput | Out-Null
-$catalog = Get-Content -LiteralPath (Join-Path $generatorRoot "generated\catalog.json") -Raw | ConvertFrom-Json
+
+$catalogPath = Join-Path $generatorRoot "generated\catalog.json"
+if (-not (Test-Path -LiteralPath $catalogPath -PathType Leaf)) {
+    throw "paintzgen did not create '$catalogPath'."
+}
+
+$catalog = Get-Content -LiteralPath $catalogPath -Raw | ConvertFrom-Json
 $exported = @($catalog.paints)
-
-# These directories contain generator-owned paint outputs. Remove obsolete PNGs
-# now; retain the last usable PAAs until ImageToPAA availability is confirmed.
-foreach ($outputPath in @($canOutput, $surfaceOutput)) {
-    Get-ChildItem -LiteralPath $outputPath -File -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -match '^pz_[a-z0-9_]+_co\.png$' } |
-        Remove-Item -Force
-}
-
-foreach ($paint in $exported) {
-    $pngName = $paint.texture_stem + "_co.png"
-    $source = Join-Path $generatorRoot "generated\labels\$pngName"
-    Copy-Item -LiteralPath $source -Destination (Join-Path $canOutput $pngName) -Force
-    $surfaceSource = Join-Path $generatorRoot "generated\surfaces\$pngName"
-    Copy-Item -LiteralPath $surfaceSource -Destination (Join-Path $surfaceOutput $pngName) -Force
-}
 
 if (-not $ImageToPAA) {
     $candidates = @(
         "E:\SteamLibrary\steamapps\common\DayZ Tools\Bin\ImageToPAA\ImageToPAA.exe",
+        "D:\SteamLibrary\steamapps\common\DayZ Tools\Bin\ImageToPAA\ImageToPAA.exe",
         "C:\Program Files (x86)\Steam\steamapps\common\DayZ Tools\Bin\ImageToPAA\ImageToPAA.exe",
         "C:\Program Files\Steam\steamapps\common\DayZ Tools\Bin\ImageToPAA\ImageToPAA.exe"
     )
     $ImageToPAA = $candidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
 }
+
 if (-not $ImageToPAA -or -not (Test-Path -LiteralPath $ImageToPAA -PathType Leaf)) {
     throw "ImageToPAA.exe was not found. Pass -ImageToPAA '<path-to-ImageToPAA.exe>'."
 }
 
-# Conversion is available, so stale generated PAAs can now be removed safely.
+# data/ is runtime-only. Remove any old generator intermediates left by older
+# builds, plus stale PaintZ-generated PAAs. Source PNGs remain under
+# tools/paintzgen/generated and are converted directly from there.
 foreach ($outputPath in @($canOutput, $surfaceOutput)) {
     Get-ChildItem -LiteralPath $outputPath -File -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -match '^pz_[a-z0-9_]+_co\.paa$' } |
+        Where-Object {
+            $_.Name -match '^pz_[a-z0-9_]+_co\.(png|paa)$'
+        } |
         Remove-Item -Force
 }
 
+$canCount = 0
+$surfaceCount = 0
+
 foreach ($paint in $exported) {
     $stem = $paint.texture_stem + "_co"
-    $png = Join-Path $canOutput ($stem + ".png")
-    $paa = Join-Path $canOutput ($stem + ".paa")
-    & $ImageToPAA $png $paa
-    if ($LASTEXITCODE -ne 0) {
-        throw "ImageToPAA failed for '$png'."
+    $sourcePng = Join-Path $generatorRoot ("generated\labels\" + $stem + ".png")
+    $destinationPaa = Join-Path $canOutput ($stem + ".paa")
+
+    if (-not (Test-Path -LiteralPath $sourcePng -PathType Leaf)) {
+        throw "Generated can texture was not found: '$sourcePng'."
     }
 
-    $surfacePng = Join-Path $surfaceOutput ($stem + ".png")
-    $surfacePaa = Join-Path $surfaceOutput ($stem + ".paa")
-    & $ImageToPAA $surfacePng $surfacePaa
-    if ($LASTEXITCODE -ne 0) {
-        throw "ImageToPAA failed for '$surfacePng'."
+    & $ImageToPAA $sourcePng $destinationPaa
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $destinationPaa -PathType Leaf)) {
+        throw "ImageToPAA failed for '$sourcePng'."
+    }
+    $canCount++
+
+    foreach ($variant in @($paint.surface_variants)) {
+        $surfaceStem = $variant.texture_stem + "_co"
+        $surfaceSourcePng = Join-Path $generatorRoot ("generated\surfaces\" + $surfaceStem + ".png")
+        $surfaceDestinationPaa = Join-Path $surfaceOutput ($surfaceStem + ".paa")
+
+        if (-not (Test-Path -LiteralPath $surfaceSourcePng -PathType Leaf)) {
+            throw "Generated surface texture was not found: '$surfaceSourcePng'."
+        }
+
+        & $ImageToPAA $surfaceSourcePng $surfaceDestinationPaa
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $surfaceDestinationPaa -PathType Leaf)) {
+            throw "ImageToPAA failed for '$surfaceSourcePng'."
+        }
+        $surfaceCount++
     }
 }
 
-Write-Host "paintzgen exported $($exported.Count) can textures to $canOutput and finish-rendered surface textures to $surfaceOutput"
+$runtimePngs = @(Get-ChildItem -LiteralPath (Join-Path $ProjectRoot 'data') -Recurse -Filter *.png -File -ErrorAction SilentlyContinue)
+if ($runtimePngs.Count -gt 0) {
+    $paths = $runtimePngs | ForEach-Object { $_.FullName }
+    throw "Runtime data directory contains PNG intermediates after generation:`n  $($paths -join "`n  ")"
+}
+
+$paaFiles = @(Get-ChildItem -LiteralPath (Join-Path $ProjectRoot 'data') -Recurse -Filter *.paa -File -ErrorAction SilentlyContinue)
+$paaBytes = ($paaFiles | Measure-Object Length -Sum).Sum
+
+Write-Host "paintzgen exported $canCount can textures and $surfaceCount surface textures"
+Write-Host ("runtime PAA payload: {0} files, {1:N2} MB" -f $paaFiles.Count, ($paaBytes / 1MB))

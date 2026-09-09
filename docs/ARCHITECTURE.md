@@ -27,15 +27,18 @@ A domain can disappear after an item was painted. The existing finish must still
 - canonical finish ID;
 - resolved paint selection;
 - network hash/synchronization;
+- transient derived pattern-scale percentage;
 - persistent logical assignment.
 
 `PaintZ_PaintTarget` does not dispatch by category. It casts the target to `ItemBase` and updates the shared state.
+
+The pattern-scale percentage is networked because clients need to resolve the same derived surface texture, but it is not persistent logical state.
 
 ## Persistence
 
 PaintZ requires Community Framework and uses **CF ModStorage** on `ItemBase`.
 
-This choice is intentional. Appending PaintZ bytes in a broad native `ItemBase::OnStoreSave()` override is unsafe because derived DayZ classes can serialize additional state after calling `super`; inserting PaintZ data at the base layer can therefore place it in the middle of a subclass stream and break legacy or third-party persistence.
+This choice is intentional. Appending PaintZ bytes in a broad native `ItemBase::OnStoreSave()` override is unsafe because derived DayZ classes can serialize additional data after calling `super`; inserting PaintZ data at the base layer can therefore place it in the middle of a subclass stream and break legacy or third-party persistence.
 
 CF already owns the safe base persistence wrapper and gives each mod an isolated versioned storage context. PaintZ implements only `CF_OnStoreSave` / `CF_OnStoreLoad` on `ItemBase` and writes the canonical finish ID into the `PaintZ` ModStorage context.
 
@@ -49,7 +52,7 @@ Consequences:
 - when PaintZ is temporarily absent but CF remains loaded, CF preserves PaintZ's opaque unloaded-mod payload across subsequent saves;
 - removing CF as well is outside the persistence guarantee.
 
-Visual restoration is deferred one call-queue turn after CF load so model/hidden-selection work is not performed inside the serializer. Eligibility policy is not consulted while restoring historical state.
+Pattern scale is deliberately excluded from persistence. The stored finish ID remains stable while the visual scale can evolve with configuration. Visual restoration is deferred one call-queue turn after CF load so model/hidden-selection work is not performed inside the serializer. During that restore PaintZ remeasures the target and derives the current scale before applying the texture. Eligibility policy is not consulted while restoring historical state.
 
 ## Runtime item policy
 
@@ -87,9 +90,32 @@ Functional surfaces remain protected. Selection names indicating glass, lens, re
 
 If several selections remain ambiguous, PaintZ rejects the target instead of guessing. Consequently, two optics from different mods may behave differently: one can paint because it exposes a safe body/camo/housing selection while another remains unsupported because it exposes only lens/reticle surfaces.
 
+## Pattern scale normalization
+
+Pattern scale is derived visual state, not finish identity.
+
+For a patterned finish, the server uses `GetCollisionBox()` on the actual target and takes the longest local collision-box dimension as a generic physical-size proxy. `$profile:PaintZ/paintz_pattern_scaling.json` maps ascending maximum dimensions to scale values backed by generated texture variants.
+
+The generator owns the allowed scale set. Runtime config validation rejects any scale that has no generated asset. The existing 1x filename remains stable; additional variants use percentage suffixes such as `_s050`, `_s150` and `_s200`.
+
+Scale is derived only at two lifecycle points:
+
+1. a new paint/repaint application;
+2. post-load restoration of a persisted finish.
+
+Reloading the scale config does not enumerate or mutate already-loaded painted objects. The next application uses the new mapping immediately, and a later server restart/load re-derives the scale from the same persisted finish ID.
+
+The server synchronizes the chosen scale percentage with the existing ItemBase paint state so clients resolve the same texture path. Clients do not need a copy of the server scaling config.
+
+Longest collision-box size is intentionally an approximation rather than a promise of real-world texel density. Model UV layouts can differ significantly, including between similarly sized magazines, stocks, suppressors and optics. The design therefore improves consistency without introducing per-class compatibility tables.
+
+Solid paints always resolve to the normal 1x texture.
+
 ## Object preservation
 
 Painting modifies the existing object with `SetObjectTexture()` and does not replace its classname. Health, ammunition, chamber state, attachments, cargo, inventory location and third-party state remain owned by DayZ/the original mod.
+
+Pattern scaling changes only which generated diffuse/coating texture path is selected. PaintZ still does not replace the target RVMat/material.
 
 ## Boundary of universality
 

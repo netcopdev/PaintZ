@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.0
+
+- Added generated pattern-scale surface variants configured by `generator.pattern_scales`.
+- Kept the existing 1x surface filename stable; non-1x variants use `_sNNN` suffixes such as `_s050` and `_s200`.
+- Added generated runtime catalogue metadata for pattern finishes and supported scale percentages.
+- Pattern scaling changes camouflage geometry before wear overlays are applied, so scratches/grime are not enlarged with the pattern.
+- Added per-paint surface-variant metadata to `generated/catalog.json` for the DayZ export/build pipeline.
+
 ## 1.4.0
 
 - Removed hash-derived PaintZ IDs entirely.

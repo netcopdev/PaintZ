@@ -62,13 +62,37 @@ or use `scripts/generate.sh` / `scripts/generate.ps1`.
 
 Solid paints use the v1.3 phase-one deterministic finish stack: grain, grime, scratches, optional rust and edge wear. Appearance settings do not affect product IDs.
 
+## Pattern scale variants
+
+`generator.pattern_scales` defines the pattern sizes generated for every finish backed by a `pattern` image. The current manifest generates:
+
+```json
+"pattern_scales": [0.5, 0.75, 1.0, 1.5, 2.0, 3.0]
+```
+
+The existing 1x surface keeps its historical filename, for example:
+
+`pz_c_wdl_co.paa`
+
+Additional variants use a percentage suffix:
+
+- `pz_c_wdl_s050_co.paa` — 0.5x
+- `pz_c_wdl_s075_co.paa` — 0.75x
+- `pz_c_wdl_s150_co.paa` — 1.5x
+- `pz_c_wdl_s200_co.paa` — 2x
+- `pz_c_wdl_s300_co.paa` — 3x
+
+Only the pattern geometry is transformed. The deterministic wear stack is applied after that transform. Solid finishes do not generate redundant scale variants.
+
+The generated DayZ catalogue exposes which finish IDs are patterned and which scale percentages exist so runtime configuration cannot select a missing asset.
+
 ## Starter catalogue
 
 The manifest includes common military colours and camouflage finishes, including `PZ-S-WHT`, `PZ-S-FDE`, `PZ-C-WDL`, `PZ-C-MCT` and `PZ-C-UCP`.
 
 ## Contents
 
-- `paints.json` — paint catalogue and explicit IDs;
+- `paints.json` — paint catalogue, explicit IDs and generated pattern scales;
 - `config/appearance_profiles.json` — solid-finish profiles;
 - `tools/generate_paints.py` — CLI generator;
 - `tools/paintzgen/` — renderer, ID handling, validation and DayZ output;
@@ -82,9 +106,10 @@ The manifest includes common military colours and camouflage finishes, including
 
 The PaintZ build runs this generator automatically. Every paint is emitted into
 the mod config and generated runtime action catalogue, its label is copied to
-`data/cans`, and its finish-rendered coating is copied to `data/surfaces`; both are converted
-to PAA. `dayz_class` may override the generated classname; otherwise the generator
-uses `PaintZ_SprayCan_ID`. See `docs/DAYZ_INTEGRATION.md`.
+`data/cans`, and its finish-rendered coating is copied to `data/surfaces`; both
+are converted to PAA. Pattern finishes export every configured scale variant.
+`dayz_class` may override the generated classname; otherwise the generator uses
+`PaintZ_SprayCan_ID`. See `docs/DAYZ_INTEGRATION.md`.
 
 ## Public source checkout
 

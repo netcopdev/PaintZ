@@ -3,6 +3,7 @@
   "generator": {
     "label_size": [1024, 1024],
     "surface_size": [1024, 1024],
+    "pattern_scales": [0.5, 0.75, 1.0, 1.5, 2.0, 3.0],
     "finish_default": "MATTE FINISH",
     "field_text": "FIELD USE / GENERAL PURPOSE",
     "font": {

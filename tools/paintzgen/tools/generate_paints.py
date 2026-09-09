@@ -1,118 +1,266 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse, json, shutil, sys
+
+import argparse
+import json
+import shutil
+import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve()
 ROOT = HERE.parents[1]
 sys.path.insert(0, str(HERE.parent))
-from paintzgen.manifest import load_manifest
-from paintzgen.ids import code_for_paint, code_to_slug, type_code
-from paintzgen.render import create_base, render_label, render_surface, save_preview, save_preview_catalog, find_font
+
 from paintzgen.dayz import emit_dayz
+from paintzgen.ids import code_for_paint, code_to_slug, type_code
+from paintzgen.manifest import load_manifest
+from paintzgen.render import (
+    create_base,
+    find_font,
+    render_label,
+    save_preview,
+    save_preview_catalog,
+)
+from paintzgen.scaled_surface import render_surface_scaled
 
 
 def load_appearance_profiles(repo_root: Path) -> dict:
-    path = repo_root / 'config' / 'appearance_profiles.json'
+    path = repo_root / "config" / "appearance_profiles.json"
     if not path.exists():
         return {
-            'default_profile': 'used',
-            'profiles': {
-                'used': {'noise': 0.07, 'scratches': 0.12, 'grime': 0.08, 'rust': 0.0, 'edgewear': 0.08}
-            }
+            "default_profile": "used",
+            "profiles": {
+                "used": {
+                    "noise": 0.07,
+                    "scratches": 0.12,
+                    "grime": 0.08,
+                    "rust": 0.0,
+                    "edgewear": 0.08,
+                }
+            },
         }
-    data = json.loads(path.read_text(encoding='utf-8'))
-    if 'profiles' not in data or not isinstance(data['profiles'], dict) or not data['profiles']:
-        raise ValueError('config/appearance_profiles.json must contain a non-empty profiles object')
-    default_name = data.get('default_profile', 'used')
-    if default_name not in data['profiles']:
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if "profiles" not in data or not isinstance(data["profiles"], dict) or not data["profiles"]:
+        raise ValueError("config/appearance_profiles.json must contain a non-empty profiles object")
+
+    default_name = data.get("default_profile", "used")
+    if default_name not in data["profiles"]:
         raise ValueError(f"Appearance default_profile {default_name!r} is not defined")
     return data
 
 
+def load_pattern_scales(data: dict) -> list[tuple[float, int]]:
+    raw = data.get("generator", {}).get("pattern_scales", [1.0])
+    if not isinstance(raw, list) or not raw:
+        raise ValueError("generator.pattern_scales must be a non-empty array")
+
+    result: list[tuple[float, int]] = []
+    seen: set[int] = set()
+
+    for index, value in enumerate(raw):
+        try:
+            scale = float(value)
+        except (TypeError, ValueError) as error:
+            raise ValueError(
+                f"generator.pattern_scales[{index}] must be numeric"
+            ) from error
+
+        percent = round(scale * 100)
+        if scale <= 0 or percent <= 0 or percent > 1000:
+            raise ValueError(
+                f"generator.pattern_scales[{index}] must be greater than 0 and no more than 10.0"
+            )
+
+        if abs(scale - percent / 100.0) > 1e-9:
+            raise ValueError(
+                f"generator.pattern_scales[{index}] must resolve to a whole percentage"
+            )
+
+        if percent in seen:
+            raise ValueError(
+                f"generator.pattern_scales contains duplicate scale {scale}"
+            )
+
+        seen.add(percent)
+        result.append((percent / 100.0, percent))
+
+    if 100 not in seen:
+        raise ValueError("generator.pattern_scales must include 1.0")
+
+    return result
+
+
+def surface_variant_stem(texture_stem: str, scale_percent: int) -> str:
+    if scale_percent == 100:
+        return texture_stem
+    return f"{texture_stem}_s{scale_percent:03d}"
+
+
 def main():
-    ap = argparse.ArgumentParser(description='Generate PaintZ Design 2 can labels and integration assets')
-    ap.add_argument('--manifest', type=Path, default=ROOT / 'paints.json')
-    ap.add_argument('--clean', action='store_true', help='remove generated output first')
-    ap.add_argument('--check', action='store_true', help='validate IDs but do not render')
+    ap = argparse.ArgumentParser(
+        description="Generate PaintZ Design 2 can labels and integration assets"
+    )
+    ap.add_argument("--manifest", type=Path, default=ROOT / "paints.json")
+    ap.add_argument("--clean", action="store_true", help="remove generated output first")
+    ap.add_argument("--check", action="store_true", help="validate IDs but do not render")
     args = ap.parse_args()
+
     manifest_path = args.manifest.resolve()
     repo_root = manifest_path.parent
     data = load_manifest(manifest_path)
     appearance_cfg = load_appearance_profiles(repo_root)
-    out = repo_root / 'generated'
+    pattern_scales = load_pattern_scales(data)
+
+    out = repo_root / "generated"
     if args.clean and out.exists():
         shutil.rmtree(out)
-    (out / 'labels').mkdir(parents=True, exist_ok=True)
-    (out / 'surfaces').mkdir(parents=True, exist_ok=True)
-    (out / 'previews').mkdir(parents=True, exist_ok=True)
-    (out / 'dayz').mkdir(parents=True, exist_ok=True)
+
+    (out / "labels").mkdir(parents=True, exist_ok=True)
+    (out / "surfaces").mkdir(parents=True, exist_ok=True)
+    (out / "previews").mkdir(parents=True, exist_ok=True)
+    (out / "dayz").mkdir(parents=True, exist_ok=True)
 
     catalog = []
     codes = {}
     suggested_count = 0
-    for p in data['paints']:
+
+    for p in data["paints"]:
         code, suggested = code_for_paint(p)
         if code in codes:
             other = codes[code]
             raise SystemExit(
-                'ERROR: duplicate PaintZ product code.\n'
+                "ERROR: duplicate PaintZ product code.\n"
                 f"  {code}: {other['name']!r}\n"
                 f"  {code}: {p['name']!r}\n"
                 "Assign a different explicit 'id' suffix to one of the paints."
             )
-        codes[code] = {'name': p['name'], 'type': p['type']}
+
+        codes[code] = {"name": p["name"], "type": p["type"]}
         if suggested:
             suggested_count += 1
+
         slug = code_to_slug(code)
-        catalog.append({
-            'name': p['name'],
-            'id': code.split('-')[-1],
-            'id_source': 'suggested' if suggested else 'explicit',
-            'type': p['type'],
-            'type_code': type_code(p['type']),
-            'code': code,
-            'texture_stem': slug,
-            'source': p.get('color') or p.get('pattern'),
-            'appearance_profile': p.get('appearance_profile'),
-            'dayz_class': p.get('dayz_class'),
-        })
+        is_pattern = bool(p.get("pattern"))
+        variants = []
+        if is_pattern:
+            for scale, scale_percent in pattern_scales:
+                variants.append(
+                    {
+                        "scale": scale,
+                        "scale_percent": scale_percent,
+                        "texture_stem": surface_variant_stem(slug, scale_percent),
+                    }
+                )
+        else:
+            variants.append(
+                {
+                    "scale": 1.0,
+                    "scale_percent": 100,
+                    "texture_stem": slug,
+                }
+            )
+
+        catalog.append(
+            {
+                "name": p["name"],
+                "id": code.split("-")[-1],
+                "id_source": "suggested" if suggested else "explicit",
+                "type": p["type"],
+                "type_code": type_code(p["type"]),
+                "code": code,
+                "texture_stem": slug,
+                "source": p.get("color") or p.get("pattern"),
+                "appearance_profile": p.get("appearance_profile"),
+                "dayz_class": p.get("dayz_class"),
+                "is_pattern": is_pattern,
+                "surface_variants": variants,
+            }
+        )
 
     if args.check:
-        for x in catalog:
-            marker = 'SUGGESTED' if x['id_source'] == 'suggested' else 'explicit'
-            print(f"{x['code']:<16} {x['type']:<12} {marker:<9} {x['name']}")
+        for item in catalog:
+            marker = "SUGGESTED" if item["id_source"] == "suggested" else "explicit"
+            print(
+                f"{item['code']:<16} {item['type']:<12} "
+                f"{marker:<9} {item['name']}"
+            )
+
         if suggested_count:
-            print(f"WARNING: {suggested_count} paint(s) use generated ID suggestions. Add explicit 'id' values before release.")
+            print(
+                f"WARNING: {suggested_count} paint(s) use generated ID suggestions. "
+                "Add explicit 'id' values before release."
+            )
+
+        scales_text = ", ".join(f"{scale:g}x" for scale, _ in pattern_scales)
+        print(f"Pattern scales: {scales_text}")
         print(f"OK: {len(catalog)} paints; font={find_font() or 'Pillow default'}")
         return
 
-    base = create_base(tuple(data.get('generator', {}).get('label_size', [1024, 1024])))
-    base.save(repo_root / 'assets/template/military_issue_base.png')
+    base = create_base(tuple(data.get("generator", {}).get("label_size", [1024, 1024])))
+    base.save(repo_root / "assets/template/military_issue_base.png")
     preview_items = []
-    surface_size = tuple(data.get('generator', {}).get('surface_size', [1024, 1024]))
-    for p, x in zip(data['paints'], catalog):
-        label = render_label(base, p, x['code'], repo_root, appearance_cfg)
-        label.save(out / 'labels' / f"{x['texture_stem']}_co.png")
-        surface = render_surface(p, x['code'], repo_root, surface_size, appearance_cfg)
-        surface.save(out / 'surfaces' / f"{x['texture_stem']}_co.png")
-        preview_path = out / 'previews' / f"{x['texture_stem']}_preview.png"
+    surface_size = tuple(
+        data.get("generator", {}).get("surface_size", [1024, 1024])
+    )
+
+    for p, item in zip(data["paints"], catalog):
+        label = render_label(base, p, item["code"], repo_root, appearance_cfg)
+        label.save(out / "labels" / f"{item['texture_stem']}_co.png")
+
+        for variant in item["surface_variants"]:
+            surface = render_surface_scaled(
+                p,
+                item["code"],
+                repo_root,
+                surface_size,
+                appearance_cfg,
+                pattern_scale=variant["scale"],
+            )
+            surface.save(
+                out
+                / "surfaces"
+                / f"{variant['texture_stem']}_co.png"
+            )
+
+        preview_path = out / "previews" / f"{item['texture_stem']}_preview.png"
         save_preview(label, preview_path)
-        preview_items.append((p, x['code'], preview_path))
-    save_preview_catalog(preview_items, out / 'preview_catalog.png')
-    (out / 'catalog.json').write_text(json.dumps({
-        'generator_version': '1.4.0',
-        'id_scheme': 'PZ-T-CUSTOM',
-        'appearance_profiles': appearance_cfg,
-        'paints': catalog,
-    }, indent=2) + '\n', encoding='utf-8')
-    emit_dayz(catalog, data.get('dayz', {}), out / 'dayz')
+        preview_items.append((p, item["code"], preview_path))
+
+    save_preview_catalog(preview_items, out / "preview_catalog.png")
+    (out / "catalog.json").write_text(
+        json.dumps(
+            {
+                "generator_version": "1.5.0",
+                "id_scheme": "PZ-T-CUSTOM",
+                "appearance_profiles": appearance_cfg,
+                "pattern_scales": [scale for scale, _ in pattern_scales],
+                "paints": catalog,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    emit_dayz(
+        catalog,
+        data.get("dayz", {}),
+        out / "dayz",
+        [scale for scale, _ in pattern_scales],
+    )
+
     if suggested_count:
-        print(f"WARNING: {suggested_count} paint(s) use generated ID suggestions. Add explicit 'id' values before release.")
+        print(
+            f"WARNING: {suggested_count} paint(s) use generated ID suggestions. "
+            "Add explicit 'id' values before release."
+        )
+
     print(f"Generated {len(catalog)} paints in {out}")
-    print(f"Font: {find_font() or 'Pillow default (set PAINTZ_FONT for fixed typography)'}")
+    print(
+        f"Font: {find_font() or 'Pillow default (set PAINTZ_FONT for fixed typography)'}"
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
-
