@@ -131,12 +131,15 @@ class CustomMission: MissionServer
             if (GetGame().ConfigGetInt(path + " scope") != 2)
                 continue;
 
-            string finishId;
-            GetGame().ConfigGetText(path + " paintzFinish", finishId);
-            if (finishId == "")
-                GetGame().ConfigGetText(path + " paintzCode", finishId);
-            finishId.ToUpper();
+            string finishId = "";
+            string finishPath = path + " paintzFinish";
+            string legacyPath = path + " paintzCode";
+            if (GetGame().ConfigIsExisting(finishPath))
+                GetGame().ConfigGetText(finishPath, finishId);
+            else if (GetGame().ConfigIsExisting(legacyPath))
+                GetGame().ConfigGetText(legacyPath, finishId);
 
+            finishId.ToUpper();
             if (finishId != "" && PaintZ_PaintPackRegistry.HasFinish(finishId))
                 canTypes.Insert(className);
         }
