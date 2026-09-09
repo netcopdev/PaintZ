@@ -2,6 +2,7 @@ class PaintZ_ItemPolicyRule
 {
     string action;
     string type;
+    ref array<string> types;
     string class_pattern;
     ref array<string> class_patterns;
     string inherits;
@@ -13,6 +14,7 @@ class PaintZ_ItemPolicyRule
 
     void PaintZ_ItemPolicyRule()
     {
+        types = new array<string>;
         class_patterns = new array<string>;
         inherits_any = new array<string>;
         inventory_slots = new array<string>;
@@ -23,9 +25,21 @@ class PaintZ_ItemPolicyRule
 class PaintZ_TargetDomainRule
 {
     string type;
+    ref array<string> types;
     string class_pattern;
+    ref array<string> class_patterns;
     string inventory_slot;
+    ref array<string> inventory_slots;
     string inventory_slot_pattern;
+    ref array<string> inventory_slot_patterns;
+
+    void PaintZ_TargetDomainRule()
+    {
+        types = new array<string>;
+        class_patterns = new array<string>;
+        inventory_slots = new array<string>;
+        inventory_slot_patterns = new array<string>;
+    }
 };
 
 class PaintZ_ItemPolicyConfig
@@ -39,5 +53,6 @@ class PaintZ_ItemPolicyConfig
     void PaintZ_ItemPolicyConfig()
     {
         rules = new array<ref PaintZ_ItemPolicyRule>;
+        domains = new array<ref PaintZ_TargetDomainRule>;
     }
 };

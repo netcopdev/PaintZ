@@ -144,18 +144,37 @@ The normal visual operation is `SetObjectTexture()` or the verified current equi
 
 `$profile:PaintZ/paintz_items.json` is an administrative layer for **new painting/repainting**. It is not the persistence schema and not a classname compatibility database.
 
+## Selector schema consistency invariant
+
+Where a selector can sensibly accept either one value or several alternatives, expose a singular field and a plural array field. Singular and plural forms belong to the same OR group.
+
+For selector families available in both domains and rules, keep the JSON names and semantics identical in both places. Current shared families are:
+
+- `type` / `types`;
+- `class_pattern` / `class_patterns`;
+- `inventory_slot` / `inventory_slots`;
+- `inventory_slot_pattern` / `inventory_slot_patterns`.
+
+When adding a future shared selector family, do not implement it in only one location, do not use different names in domains and rules, and do not omit a sensible plural form. Extend config classes, validation/normalization, matching, server/client synchronization, bundled examples and documentation together.
+
+Within one selector family, all supplied singular/plural values are OR. Different selector families inside one domain/rule object are AND.
+
 ## Domains
 
 Domains determine whether a target is relevant enough to offer PaintZ feedback/new painting.
 
 A domain may contain any combination of:
 
-- `type`: a DayZ base/config type;
-- `class_pattern`: case-insensitive classname wildcard using `*` / `?`;
-- `inventory_slot`: exact declared compatible `inventorySlot`;
-- `inventory_slot_pattern`: wildcard over declared compatible `inventorySlot` values.
+- `type`: one DayZ base/config type;
+- `types`: OR-list of DayZ base/config types;
+- `class_pattern`: one case-insensitive classname wildcard using `*` / `?`;
+- `class_patterns`: OR-list of classname wildcards;
+- `inventory_slot`: one exact declared compatible `inventorySlot`;
+- `inventory_slots`: OR-list of exact declared compatible slots;
+- `inventory_slot_pattern`: one wildcard over declared compatible `inventorySlot` values;
+- `inventory_slot_patterns`: OR-list of declared-slot wildcards.
 
-All supplied fields inside one domain are AND. Separate domain objects are OR.
+Different supplied selector families inside one domain are AND. Singular and plural values within one family are OR. Separate domain objects are OR.
 
 ### Slot matching is class/config based
 
@@ -171,18 +190,22 @@ Slot names and slot wildcard matching are case-insensitive. Unknown/modded slot 
 
 Rules are ordered include/exclude policy. Last matching rule wins.
 
-`type` is optional scope and may be:
+`type` / `types` are optional scope. Their values may be:
 
 - omitted / `all`;
 - any valid DayZ base/config type;
 - legacy `weapon` / `magazine` aliases only for backward compatibility.
 
-Each rule has exactly one selector from:
+If both `type` and `types` are present they form one OR scope group. If neither supplies a value, scope normalizes to `all`.
 
-- `class_pattern`;
-- `inherits`;
-- `inventory_slot`;
-- `inventory_slot_pattern`.
+Each rule must also have at least one non-type selector from:
+
+- `class_pattern` / `class_patterns`;
+- `inherits` / `inherits_any`;
+- `inventory_slot` / `inventory_slots`;
+- `inventory_slot_pattern` / `inventory_slot_patterns`.
+
+Multiple selector families in one rule are valid and are ANDed. Multiple alternatives inside one family are ORed. Singular and plural forms of the same family combine into the same OR group.
 
 Do not use a closed enum whose extension requires code changes for each new category or attachment family.
 
@@ -216,7 +239,7 @@ Do not parse JSON every frame or every action evaluation.
 
 Parse and validate a detached candidate, then atomically replace the active config only when valid. A failed reload retains the last-known-good config. Startup with no valid config fails closed for new painting.
 
-Validate schema version, required fields, action values, selector count, wildcard data, and type/inheritance references where the current API permits reliable validation.
+Validate schema version, required fields, action values, selector groups, singular/plural arrays, wildcard data, and type/inheritance references where the current API permits reliable validation.
 
 Do not reject unknown slot names merely because they come from third-party content; slot selectors are strings intentionally designed to support modded items.
 
@@ -279,7 +302,7 @@ At action completion revalidate:
 
 Clients may display actions and visuals but must not be trusted to choose arbitrary finish IDs, textures, selections, slot-policy bypasses, or policy results.
 
-Runtime policy synchronization must serialize every supported selector field consistently on server and client. If the wire shape changes, update both write/read paths together and consider compatibility consequences.
+Runtime policy synchronization must serialize every supported selector field consistently on server and client. This includes every singular field and every plural selector array. If the wire shape changes, update both write/read paths together and consider compatibility consequences.
 
 Use one logical PaintZ state source. Persistence and network replication are separate responsibilities but must not duplicate state.
 
@@ -386,9 +409,10 @@ Before considering work complete:
 3. confirm no generated files were hand-edited incorrectly;
 4. run available static/generator tests;
 5. run DayZ Tools/server compilation when available;
-6. exercise slot selectors with at least a loose stock/handguard, an optic, a flashlight/suppressor family, and a non-slot explicit domain such as `SmallProtectorCase`;
-7. verify an optic/light exposing only protected functional surfaces remains safely unsupported;
-8. perform live persistence/multiplayer acceptance for lifecycle changes;
-9. update `README.md`, `docs/ARCHITECTURE.md`, relevant feature docs, and release acceptance criteria when architecture changes.
+6. exercise singular-only, plural-only, and combined singular+plural selector forms;
+7. exercise slot selectors with at least a loose stock/handguard, an optic, a flashlight/suppressor family, and a non-slot explicit domain such as `SmallProtectorCase`;
+8. verify an optic/light exposing only protected functional surfaces remains safely unsupported;
+9. perform live persistence/multiplayer acceptance for lifecycle changes;
+10. update `README.md`, `docs/ARCHITECTURE.md`, relevant feature docs, and release acceptance criteria when architecture changes.
 
 Do not claim an unrun build/test passed.

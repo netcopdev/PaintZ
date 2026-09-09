@@ -56,29 +56,33 @@ Pattern scale is deliberately excluded from persistence. The stored finish ID re
 
 ## Runtime item policy
 
-Domains are a positive OR-list. Each domain may contain any combination of:
+Domains are a positive OR-list. Shared selector families use the same singular/plural schema in both domains and rules:
 
-- `type`: a DayZ base/config class;
-- `class_pattern`: a case-insensitive `*` / `?` classname glob;
-- `inventory_slot`: an exact declared compatible `inventorySlot`;
-- `inventory_slot_pattern`: a case-insensitive `*` / `?` glob over declared compatible `inventorySlot` values.
+- `type` / `types`;
+- `class_pattern` / `class_patterns`;
+- `inventory_slot` / `inventory_slots`;
+- `inventory_slot_pattern` / `inventory_slot_patterns`.
 
-All supplied fields inside one domain are AND. Separate domain objects are OR.
+Within one selector family, singular and plural values form one OR group. Different selector families inside the same domain/rule object are AND. This naming and matching convention is an architecture invariant for future shared selectors.
+
+A domain may contain any combination of those selector families. Separate domain objects are OR.
 
 Slot matching uses the target class's **declared compatible slot data**, not the item's current attachment state. That means a stock, optic, suppressor or flashlight lying loose on the ground still matches the slots its config says it can occupy. PaintZ reads inherited slot data from the target's actual config root and does not maintain a classname-to-slot registry.
 
-The bundled default config now includes weapon/magazine domains, common weapon/pistol/suppressor slot families, and `SmallProtectorCase`. These values are data, not special PaintZ architecture.
+The bundled default config includes weapon/magazine type alternatives, common weapon/pistol/suppressor slot-pattern alternatives, and `SmallProtectorCase`. These values are data, not special PaintZ architecture.
 
-Rules are evaluated top-to-bottom and the last match wins. A rule's optional `type` is generic: it may be `all`, a valid DayZ base/config class, or legacy aliases `weapon` / `magazine` for compatibility with existing version-1 configs.
+Rules are evaluated top-to-bottom and the last match wins. A rule's optional type scope uses `type`, `types`, or both. Scope may be `all`, valid DayZ base/config classes, or legacy aliases `weapon` / `magazine` for compatibility with existing version-1 configs. If type scope is omitted, it normalizes to `all`.
 
-Each rule uses exactly one selector from:
+A rule must contain at least one non-type selector family. Supported rule selectors are:
 
-- `class_pattern`;
-- `inherits`;
-- `inventory_slot`;
-- `inventory_slot_pattern`.
+- `class_pattern` / `class_patterns`;
+- `inherits` / `inherits_any`;
+- `inventory_slot` / `inventory_slots`;
+- `inventory_slot_pattern` / `inventory_slot_patterns`.
 
-No new rule/category enum should be needed when a third-party mod introduces another slot family.
+Multiple selector families in one rule are valid and are ANDed. Alternatives within one family are ORed. No new rule/category enum should be needed when a third-party mod introduces another slot family.
+
+Every policy field that affects client-visible matching is synchronized in both singular and plural form so client and server evaluate the same policy shape.
 
 ## Selection safety
 
