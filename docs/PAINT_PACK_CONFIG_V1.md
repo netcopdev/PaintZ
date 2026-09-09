@@ -15,6 +15,28 @@ Paint packs add child classes to these roots. PaintZ enumerates both trees at ru
 
 Config child class names are **not** persisted PaintZ identities. They are DayZ config keys only. Authors/PackKit should nevertheless generate distinctive class names because two add-ons defining the same config child class can be merged by the engine before PaintZ sees the tree.
 
+## Runtime dependency
+
+A normal pack depends on PaintZ through ordinary DayZ add-on dependency ordering. Its `CfgPatches` should require PaintZ's runtime patch before inheriting the can base or registering content:
+
+```cpp
+class CfgPatches
+{
+    class NCP_MilitaryPaints
+    {
+        units[] = {"NCP_SprayCan_FTN"};
+        weapons[] = {};
+        requiredVersion = 0.1;
+        requiredAddons[] =
+        {
+            "PaintZ_DynamicPaint"
+        };
+    };
+};
+```
+
+PaintZ core must never require the paint pack in the opposite direction.
+
 ## Namespace-owner declaration
 
 A normal pack declares its namespace exactly once:
@@ -110,17 +132,17 @@ The current mapping is:
 
 ```text
 S -> solid
-C -> camo
+C -> camo or camouflage
 P -> pattern
 M -> metallic
-R -> rusted
+R -> rusted or oxidized
 W -> weathered
 F -> fluorescent
 X -> special or custom
-T -> transparent
+T -> transparent or tint
 ```
 
-The `type` string and ID type letter must agree.
+The `type` string and ID type letter must agree. PackKit should emit one canonical spelling per type even though the runtime accepts the documented synonyms for interoperability.
 
 ## Spray-can class
 
@@ -186,3 +208,7 @@ Consequences during this temporary phase:
 - Standard Pack migration must remove the legacy owner/catalogue bridge from PaintZ core at the same time that the external official `PZ` owner becomes authoritative.
 
 The bridge is migration infrastructure, not part of the permanent Paint Pack API.
+
+## Conformance fixture
+
+`tools/sandbox/paint-pack-api-fixture` contains a non-shipping synthetic paint pack with valid and deliberately invalid registrations. It exists to exercise the actual merged DayZ config tree, including namespace conflicts, owner mismatch, reserved-prefix rejection, duplicate finish IDs, generic painting, and unresolved historical-state stripping.
