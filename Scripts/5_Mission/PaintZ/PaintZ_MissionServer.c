@@ -3,6 +3,7 @@ modded class MissionServer
     override void OnInit()
     {
         super.OnInit();
+        PaintZ_RuntimeDocs.Refresh();
         PaintZ_PatternScaling.StartServer();
         PaintZ_ItemPolicy.StartServer();
     }
