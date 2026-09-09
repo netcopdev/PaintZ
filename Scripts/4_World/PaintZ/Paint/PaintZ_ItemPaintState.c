@@ -20,7 +20,7 @@ class PaintZ_ItemDisplay
         if (baseDescription == "")
             return finishLine;
 
-        return baseDescription + "\n" + finishLine;
+        return baseDescription + "\n\n" + finishLine;
     }
 };
 
@@ -125,6 +125,8 @@ modded class ItemBase
 
         if (!hasUpstreamOverride)
             baseDescription = ConfigGetString("descriptionShort");
+
+        baseDescription = Widget.TranslateString(baseDescription);
 
         string finishName = PaintZ_GetDisplayFinishName();
         output = PaintZ_ItemDisplay.FormatDescription(baseDescription, finishName, m_PaintZPaintCode);
