@@ -40,6 +40,8 @@ Optional metadata:
 
 - `displayName` - human-readable pack name.
 
+The child class name, here `NCP_NetcopMilitaryPaints`, is the runtime owner key referenced by that pack's finish declarations. It is not user-facing and is not persisted. PackKit should generate a deterministic, distinctive owner class name for the pack.
+
 For an official reserved `PZ*` namespace, the declaration additionally uses:
 
 ```cpp
@@ -48,11 +50,11 @@ official = 1;
 
 This flag is an interoperability gate, not cryptographic authentication. Ordinary third-party packs must not set it and must not claim `PZ*`.
 
-A multi-PBO pack family declares the namespace in only one owner/core PBO. Satellite PBOs depend on that PBO through normal `CfgPatches.requiredAddons[]` and add finishes without another owner declaration.
+A multi-PBO pack family declares the namespace in only one owner/core PBO. Satellite PBOs depend on that PBO through normal `CfgPatches.requiredAddons[]` and reference that same owner class from their finish declarations without another owner declaration.
 
 ## Finish declaration
 
-Each finish is a child of `CfgPaintZFinishes`:
+Each finish is a child of `CfgPaintZFinishes` and explicitly names its namespace owner:
 
 ```cpp
 class CfgPaintZFinishes
@@ -60,6 +62,7 @@ class CfgPaintZFinishes
     class NCP_C_FTN
     {
         id = "NCP-C-FTN";
+        owner = "NCP_NetcopMilitaryPaints";
         displayName = "Flecktarn";
         type = "camo";
         isPattern = 1;
@@ -89,10 +92,13 @@ class CfgPaintZFinishes
 Required fields:
 
 - `id` - complete canonical finish ID `<PREFIX>-<TYPE>-<SUFFIX>`;
+- `owner` - exact `CfgPaintZPacks` child class that owns the ID prefix;
 - `displayName` - human-readable finish name;
 - `type` - type name corresponding to the ID type letter;
 - `isPattern` - `1` for a scale-selectable pattern/camouflage finish, otherwise `0`/omitted;
 - `Surfaces` - one or more explicitly declared runtime surface assets.
+
+PaintZ accepts a finish only when the prefix extracted from `id` resolves to one active namespace owner and the finish's `owner` field matches that owner's config child class exactly. This owner key is deliberately not another public/canonical ID and is not a security credential; it is config-level linkage that prevents an unrelated declaration from accidentally contributing finishes to some other active namespace.
 
 Every finish must declare a `scalePercent = 100` surface. A non-pattern finish must currently declare only the 100% surface. A pattern may declare any subset of valid whole percentages from 1 through 1000; PaintZ selects only variants actually declared by that finish and falls back to 100% when a configured scale is unavailable.
 
@@ -155,11 +161,18 @@ For namespace owners:
 For finishes:
 
 - the ID must be valid and its prefix must belong to an active namespace;
+- `owner` must match that namespace's active owner config class;
 - metadata/type and all surface declarations must validate;
 - duplicate complete finish IDs are disabled rather than overwritten;
 - PaintZ also rejects an internal network-hash collision rather than allowing ambiguous client resolution.
 
 No first-loaded-wins or last-loaded-wins rule is used.
+
+## Config-key collision limitation
+
+The Paint Pack API does not claim cryptographic authorship or hostile-mod isolation. DayZ combines config trees before PaintZ enumerates them. If two add-ons deliberately define the exact same `CfgPaintZPacks` child class, the engine may merge/override that config entry before PaintZ can distinguish the sources.
+
+Therefore owner class names should be distinctive and PackKit should generate them predictably from pack metadata, but `owner` must not be presented as a security token. Runtime namespace/finish collision handling is designed for deterministic interoperability among normally authored mods.
 
 ## Current transition bridge
 
