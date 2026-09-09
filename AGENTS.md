@@ -17,6 +17,18 @@ Identify the branch that the requested work actually depends on before editing. 
 
 `main` is the authoritative shared integration base. New independent work should normally branch from current `main`. Base new work on another feature branch only when it explicitly depends on unmerged work from that branch; once that dependency is merged, `main` supersedes it as the shared base.
 
+## Branch and merge discipline
+
+New feature, fix, refactor, experiment, tooling, documentation, or other repository work MUST be written on a separate appropriately named branch unless the user explicitly decides that the work should be performed directly on an existing branch.
+
+Creating a feature branch does **not** authorize merging it. Do not merge, squash, rebase, fast-forward, or otherwise integrate a work branch into `main` or another shared integration branch unless the user explicitly instructs you to merge/integrate it, or that integration was explicitly agreed before the work started.
+
+When the implementation is complete, leave it on its work branch and report the branch name, relevant commits/PR, and test status. Treat merge as a separate user-controlled step.
+
+Do not infer merge permission from phrases such as "implement this", "fix this", "do it", "finish it", "make it work", or from successful tests. Only an explicit merge/integration decision authorizes integration.
+
+If branch intent is ambiguous, preserve separation: create/use a work branch and do not merge.
+
 ## Shared infrastructure must live on the dependency base
 
 Shared repository infrastructure includes, but is not limited to:
