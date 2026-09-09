@@ -62,7 +62,7 @@ Optional metadata:
 
 - `displayName` - human-readable pack name.
 
-The child class name, here `NCP_NetcopMilitaryPaints`, is the runtime owner key referenced by that pack's finish declarations. It is not user-facing and is not persisted. PackKit should generate a deterministic, distinctive owner class name for the pack.
+The child class name, here `NCP_NetcopMilitaryPaints`, is the runtime owner key referenced by that pack's finish declarations. It is not user-facing and is not persisted.
 
 For an official reserved `PZ*` namespace, the declaration additionally uses:
 
@@ -72,26 +72,15 @@ official = 1;
 
 This flag is an interoperability gate, not cryptographic authentication. Ordinary third-party packs must not set it and must not claim `PZ*`.
 
-The official PaintZ Standard Pack owns `PZ` through this same mechanism:
-
-```cpp
-class CfgPaintZPacks
-{
-    class PZ_PaintZStandardPack
-    {
-        apiVersion = 1;
-        prefix = "PZ";
-        displayName = "PaintZ Standard Pack";
-        official = 1;
-    };
-};
-```
+The official PaintZ Standard Pack owns `PZ` through this same mechanism.
 
 A multi-PBO pack family declares the namespace in only one owner/core PBO. Satellite PBOs depend on that PBO through normal `CfgPatches.requiredAddons[]` and reference that same owner class from their finish declarations without another owner declaration.
 
 ## Finish declaration
 
-Each finish is a child of `CfgPaintZFinishes` and explicitly names its namespace owner:
+Each finish is a child of `CfgPaintZFinishes` and explicitly names its namespace owner.
+
+### Asset-backed example
 
 ```cpp
 class CfgPaintZFinishes
@@ -126,26 +115,63 @@ class CfgPaintZFinishes
 };
 ```
 
-Required fields:
+### Basic procedural-color example
+
+A `B`/`basic` finish uses the same registration shape, but its only S100 surface is a DayZ procedural color texture descriptor rather than a PAA path:
+
+```cpp
+class CfgPaintZFinishes
+{
+    class NCP_B_BLK
+    {
+        id = "NCP-B-BLK";
+        owner = "NCP_NetcopMilitaryPaints";
+        displayName = "Basic Black";
+        type = "basic";
+
+        class Surfaces
+        {
+            class S100
+            {
+                scalePercent = 100;
+                texture = "#(argb,8,8,3)color(0.149020,0.156863,0.152941,1.0,CO)";
+            };
+        };
+    };
+};
+```
+
+Basic finishes are predefined registered finishes. The procedural texture descriptor is derived representation, not identity; persistence still stores only `NCP-B-BLK`.
+
+### Required finish fields
 
 - `id` - complete canonical finish ID `<PREFIX>-<TYPE>-<SUFFIX>`;
 - `owner` - exact `CfgPaintZPacks` child class that owns the ID prefix;
 - `displayName` - human-readable finish name;
 - `type` - type name corresponding to the ID type letter;
 - `isPattern` - `1` for a scale-selectable pattern/camouflage finish, otherwise `0`/omitted;
-- `Surfaces` - one or more explicitly declared runtime surface assets.
+- `Surfaces` - one or more explicitly declared runtime surface representations.
 
-PaintZ accepts a finish only when the prefix extracted from `id` resolves to one active namespace owner and the finish's `owner` field matches that owner's config child class exactly. This owner key is deliberately not another public/canonical ID and is not a security credential; it is config-level linkage that prevents an unrelated declaration from accidentally contributing finishes to some other active namespace.
+PaintZ accepts a finish only when the prefix extracted from `id` resolves to one active namespace owner and the finish's `owner` field matches that owner's config child class exactly.
 
 Every finish must declare a `scalePercent = 100` surface. A non-pattern finish must currently declare only the 100% surface. A pattern may declare any subset of valid whole percentages from 1 through 1000; PaintZ selects only variants actually declared by that finish and falls back to 100% when a configured scale is unavailable.
 
-The runtime does not construct paint-pack texture paths from the finish ID.
+For `type = "basic"`:
+
+- the ID type letter must be `B`;
+- `isPattern` must not be set;
+- only S100 is valid under the normal non-pattern rule;
+- the S100 `texture` value must be a `#(argb,8,8,3)color(...)` procedural color descriptor;
+- no target-surface PAA is required.
+
+PaintZ does not construct paint-pack texture paths or procedural colors from the finish ID. The pack declaration must expose the actual representation.
 
 ### Type names
 
 The current mapping is:
 
 ```text
+B -> basic
 S -> solid
 C -> camo or camouflage
 P -> pattern
@@ -156,6 +182,8 @@ F -> fluorescent
 X -> special or custom
 T -> transparent or tint
 ```
+
+`B/basic` means a plain single RGB color with no added treatment. `S/solid` means a fundamentally single-color finish whose target-surface asset may include noise, scratches, grime, wear, mottling, rust hints, or similar detail.
 
 The `type` string and ID type letter must agree. PackKit should emit one canonical spelling per type even though the runtime accepts the documented synonyms for interoperability.
 
@@ -182,7 +210,11 @@ class CfgVehicles
 
 The can does not define its own action class. `PaintZ_SprayCanBase` attaches the single generic PaintZ paint action, which resolves the finish from `paintzFinish` and the runtime registry.
 
-The Standard Pack intentionally preserves the historical official `PaintZ_SprayCan_*` classnames while moving ownership of those classes out of PaintZ core. Classname compatibility is independent from finish identity.
+Basic finishes still use normal generated can artwork. Eliminating the target-surface PAA does not eliminate the spray-can presentation texture.
+
+A pack may use the same suffix across different finish types because the complete IDs remain distinct, for example `NCP-B-FDE` and `NCP-S-FDE`. Generated `CfgVehicles` classnames must nevertheless remain unique. PackKit must detect classname collisions, and a pack may provide explicit distinct `dayz_class` values where compatibility requires legacy classnames to be preserved.
+
+The Standard Pack intentionally preserves historical official `PaintZ_SprayCan_*` classnames for existing finishes. New Basic counterparts therefore use distinct Basic-specific can classnames rather than repurposing those historical classes.
 
 ## Runtime validation order
 
@@ -202,6 +234,7 @@ For finishes:
 - the ID must be valid and its prefix must belong to an active namespace;
 - `owner` must match that namespace's active owner config class;
 - metadata/type and all surface declarations must validate;
+- Basic finishes must use the procedural-color S100 representation described above;
 - duplicate complete finish IDs are disabled rather than overwritten;
 - PaintZ also rejects an internal network-hash collision rather than allowing ambiguous client resolution.
 
@@ -217,7 +250,9 @@ Therefore owner class names should be distinctive and PackKit should generate th
 
 PaintZ core defines the registry, generic can base, generic paint/strip actions, persistence, networking, model inspection, policy and pattern-scale behavior.
 
-PaintZ core does **not** register an implicit `PZ` owner and does not contain an official finish catalogue, finish-specific spray cans or official finish textures.
+PaintZ core understands procedural Basic surfaces generically but does **not** contain an official Basic color catalogue. Official `PZ-B-*` definitions belong in `PaintZ-Standard-Pack`, exactly like official Solid/Camouflage content.
+
+PaintZ core does not register an implicit `PZ` owner and does not contain an official finish catalogue, finish-specific spray cans or official finish textures.
 
 The official `PZ` namespace is supplied by `PaintZ-Standard-Pack` through ordinary API-v1 config registration. Third-party packs use the same mechanism without `official = 1` and with their own non-reserved prefixes.
 
@@ -230,5 +265,7 @@ CF -> PaintZ -> PaintZ Standard Pack
 ## Conformance fixture
 
 `tools/sandbox/paint-pack-api-fixture` contains a non-shipping synthetic paint pack with valid and deliberately invalid registrations. It exists to exercise the actual merged DayZ config tree, including namespace conflicts, owner mismatch, reserved-prefix rejection, duplicate finish IDs, generic painting, and unresolved historical-state stripping.
+
+Basic procedural finish acceptance/rejection should be included in this conformance coverage when the fixture is next extended.
 
 For the final Standard Pack cut-over procedure, see `STANDARD_PACK_CUTOVER_ACCEPTANCE.md`.
