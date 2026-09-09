@@ -13,6 +13,8 @@ class PaintZ_PaintedState
 
         if (item.PaintZ_GetPaintCode() != PaintZ_PaintConstants.PAINT_NONE)
             return true;
+        if (item.PaintZ_GetPaintSelection() >= 0)
+            return true;
 
         return GetPaintedSelection(target) >= 0;
     }
@@ -24,7 +26,7 @@ class PaintZ_PaintedState
             return -1;
 
         int recordedSelection = item.PaintZ_GetPaintSelection();
-        if (item.PaintZ_GetPaintCode() != PaintZ_PaintConstants.PAINT_NONE && recordedSelection >= 0)
+        if (recordedSelection >= 0)
             return recordedSelection;
 
         TStringArray selections = PaintZ_PaintInspector.GetRuntimeSelections(target);
