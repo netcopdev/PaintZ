@@ -77,7 +77,8 @@ an incompatible configuration.
 
 Reload behavior
 ---------------
-Changing this file does NOT rescale already-painted loaded items.
+Changing paintz_pattern_scaling.json does NOT rescale already-painted loaded
+items.
 
 The new mapping is used:
 - the next time an item is painted or repainted;
@@ -95,8 +96,9 @@ the current configuration whenever the persisted finish is restored.
 Testing/tuning
 --------------
 When a patterned finish is applied, PaintZ logs the measured longest collision
-dimension and chosen scale. Use those values to tune the ranges, save this
-file, wait for its reload interval, then repaint the test item.
+dimension and chosen scale. Use those values to tune the ranges, save
+paintz_pattern_scaling.json, wait for its reload interval, then repaint the test
+item.
 
 Because magazines, suppressors, optics, stocks and other attachments can have
 overlapping physical sizes but different UV layouts, a size-only mapping
