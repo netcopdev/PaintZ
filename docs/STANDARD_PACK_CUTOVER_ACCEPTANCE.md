@@ -98,15 +98,17 @@ The fixture remains useful because it exercises valid third-party registration p
 
 Do **not** use `-RunSmokeTests` for this test. That switch refers to the older built-in-catalogue smoke harness and is not part of the external Standard Pack acceptance gate.
 
+Run the sandbox script directly in the current PowerShell session so `AdditionalMods` binds as a real `string[]` rather than being flattened by a nested `pwsh -File` invocation:
+
 ```powershell
 cd E:\DayZDev\PaintZ
 
 $standardPack = "E:\DayZDev\PaintZ-Standard-Pack\dist\release\@PaintZ-Standard-Pack"
 $fixture = "$env:LOCALAPPDATA\PaintZSandbox\@PaintZ-PaintPackApiFixture"
 
-pwsh -File .\tools\sandbox\Start-PaintZSandbox.ps1 `
+& .\tools\sandbox\Start-PaintZSandbox.ps1 `
   -Build `
-  -AdditionalMods $standardPack,$fixture
+  -AdditionalMods @($standardPack, $fixture)
 ```
 
 The launcher loads:
