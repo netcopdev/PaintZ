@@ -20,7 +20,7 @@ class PaintZ_ItemDisplay
         if (baseDescription == "")
             return finishLine;
 
-        return baseDescription + "\n\n" + finishLine;
+        return baseDescription + "\n \n" + finishLine;
     }
 };
 
