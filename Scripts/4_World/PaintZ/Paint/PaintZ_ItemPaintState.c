@@ -43,8 +43,11 @@ modded class ItemBase
 
     bool PaintZ_SetPaintState(string paintCode, int selectionIndex)
     {
-        if (paintCode == PaintZ_PaintConstants.PAINT_NONE && selectionIndex < 0)
+        if (paintCode == PaintZ_PaintConstants.PAINT_NONE)
         {
+            if (selectionIndex >= 0 && !PaintZ_PaintVisuals.Apply(this, paintCode, selectionIndex, 100))
+                return false;
+
             m_PaintZPaintCode = PaintZ_PaintConstants.PAINT_NONE;
             m_PaintZPaintSelection = -1;
             m_PaintZPaintCodeHash = 0;
@@ -56,8 +59,7 @@ modded class ItemBase
 
         int scalePercent = 100;
         float maxDimensionMeters = -1.0;
-        if (paintCode != PaintZ_PaintConstants.PAINT_NONE)
-            scalePercent = PaintZ_PatternScaling.ResolveScalePercent(this, paintCode, maxDimensionMeters);
+        scalePercent = PaintZ_PatternScaling.ResolveScalePercent(this, paintCode, maxDimensionMeters);
 
         if (!PaintZ_PaintVisuals.Apply(this, paintCode, selectionIndex, scalePercent))
             return false;
@@ -66,7 +68,7 @@ modded class ItemBase
         m_PaintZPaintSelection = selectionIndex;
         m_PaintZPaintCodeHash = PaintZ_PaintStateRuntime.GetNetworkHash(paintCode);
         m_PaintZPatternScalePercent = scalePercent;
-        m_PaintZHasState = paintCode != PaintZ_PaintConstants.PAINT_NONE;
+        m_PaintZHasState = true;
         SetSynchDirty();
 
         if (PaintZ_PaintPackRegistry.IsPatternFinish(paintCode))
