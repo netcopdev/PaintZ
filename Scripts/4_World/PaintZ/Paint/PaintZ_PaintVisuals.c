@@ -5,12 +5,8 @@ class PaintZ_PaintVisuals
         if (!target || selectionIndex < 0)
             return false;
 
-        // Read the current texture, not the config defaults. Scaled variants
-        // retain the same PaintZ surface-root marker.
         string texture = target.GetObjectTexture(selectionIndex);
-        texture.ToLower();
-        texture.Replace("/", "\\");
-        return texture.IndexOf("paintz\\data\\surfaces\\pz_") == 0;
+        return PaintZ_PaintPackRegistry.IsRegisteredSurfaceTexture(texture);
     }
 
     static bool Apply(EntityAI target, string paintCode, int selectionIndex, int scalePercent = 100)
@@ -19,15 +15,28 @@ class PaintZ_PaintVisuals
             return false;
 
         if (paintCode == PaintZ_PaintConstants.PAINT_NONE)
-            RestoreConfiguredTexture(target, selectionIndex);
-        else
         {
-            if (!PaintZ_PaintCatalog.HasPaintCode(paintCode))
-                return false;
-
-            target.SetObjectTexture(selectionIndex, PaintZ_PaintConstants.GetSurfaceTexture(paintCode, scalePercent));
+            RestoreConfiguredTexture(target, selectionIndex);
+            return true;
         }
 
+        if (!PaintZ_PaintPackRegistry.HasFinish(paintCode))
+            return false;
+
+        string texture = PaintZ_PaintConstants.GetSurfaceTexture(paintCode, scalePercent);
+        if (texture == "")
+            return false;
+
+        target.SetObjectTexture(selectionIndex, texture);
+        return true;
+    }
+
+    static bool RestoreIfKnown(EntityAI target, int selectionIndex)
+    {
+        if (!target || selectionIndex < 0)
+            return false;
+
+        RestoreConfiguredTexture(target, selectionIndex);
         return true;
     }
 
@@ -38,7 +47,6 @@ class PaintZ_PaintVisuals
         {
             textures = new TStringArray();
             string configRoot = PaintZ_PaintInspector.GetConfigRoot(target);
-
             if (configRoot != "")
                 GetGame().ConfigGetTextArray(configRoot + " " + target.GetType() + " hiddenSelectionsTextures", textures);
         }

@@ -39,23 +39,42 @@ Steam library drives. Runtime files and logs are isolated under
 
 ## Default fixtures
 
-| Fixture | Expected behavior |
-|---|---|
-| `M4A1` | `Paint Woodland` (`camo`) |
-| `Mag_AKM_30Rnd` | `Paint Woodland` (`camo`) |
-| `Mag_STANAG_30Rnd` | `Cannot Paint` (no suitable hidden selection) |
-| `Ammo_556x45` | No PaintZ action; loose ammo is deliberately out of scope |
-| Every class generated from `paints.json` | One paint can on the ground |
-| `PaintZ_PaintStripperCan` | Orange can; the only can that strips paint |
+The sandbox intentionally uses a curated vanilla set instead of instantiating every
+`scope=2` weapon class from the game config. DayZ contains public/internal weapon
+entries whose FSMs are incomplete or unsuitable for direct mission spawning in
+DayZDiag; blindly constructing them produces unrelated `Virtual Machine Exception`
+noise and obscures PaintZ failures.
+
+Current curated weapons:
+
+- `M4A1`
+- `AKM`
+- `FAL`
+- `MP5K`
+- `SKS`
+- `Mosin9130`
+- `SVD`
+- `Winchester70`
+
+Current curated magazines:
+
+- `Mag_CMAG_30Rnd_Black`
+- `Mag_STANAG_30Rnd`
+- `Mag_AKM_30Rnd`
+- `Mag_AK74_30Rnd`
+- `Mag_FAL_20Rnd`
+
+Every class generated from the current legacy `paints.json` bridge is staged as one
+paint can on the ground, together with `PaintZ_PaintStripperCan`.
 
 Paint cans only paint. Hold the separate orange Paint Stripper to remove a finish.
-It offers Strip Paint only on painted compatible items and consumes 10 quantity
-per completed strip. Untouched and already stripped items offer no Strip Paint.
-The sandbox enumerates public vanilla weapons and magazines dynamically, so
-the rows above are examples rather than a complete fixture list.
+It offers Strip Paint only on items carrying PaintZ state. Paint/stripper quantity
+consumption is size-dependent and comes from `paintz_action_tuning.json`; the
+sandbox must not assume a fixed per-action quantity cost.
 
 Fixture classnames exist only in this isolated mission template. PaintZ's runtime
-paint code remains classname-agnostic.
+paint code remains classname-agnostic. A specific third-party weapon can still be
+added explicitly with `-ThirdPartyWeaponClass`.
 
 ## Useful options
 
@@ -70,9 +89,8 @@ pwsh -File .\tools\sandbox\Start-PaintZSandbox.ps1 -ServerOnly
 ```
 
 `-RunSmokeTests` appends the diagnostic smoke suite to the generated mission.
-Server startup runs catalogue, wildcard, ordered-rule, type-filter, inheritance,
-and existing-paint/stripping policy checks. When a player joins, the suite also
-runs completion-consumption and policy-reload race checks.
+Some checks still exercise the transitional built-in `PaintZ_PaintCatalog` bridge
+and will be retired when the Standard Pack migration removes that bridge.
 
 `-SkipBuild` remains accepted for compatibility, but is deprecated because skipping
 the build is now the default.
@@ -88,3 +106,41 @@ pwsh -File .\tools\sandbox\Start-PaintZSandbox.ps1 `
 
 `-AdditionalMods` accepts more than one directory. The supplied classname is
 validated and inserted only into the generated test mission, never the PaintZ PBO.
+
+## Paint Pack API v1 conformance fixture
+
+The repository also contains a non-shipping synthetic paint pack under:
+
+```text
+tools\sandbox\paint-pack-api-fixture
+```
+
+It includes valid and intentionally invalid API-v1 registrations so the runtime
+registry can be tested against the actual merged DayZ config tree.
+
+Build it with:
+
+```powershell
+.\tools\sandbox\Build-PaintPackApiFixture.ps1
+```
+
+Then load the produced mod after PaintZ:
+
+```powershell
+$fixture = "$env:LOCALAPPDATA\PaintZSandbox\@PaintZ-PaintPackApiFixture"
+pwsh -File .\tools\sandbox\Start-PaintZSandbox.ps1 `
+  -AdditionalMods $fixture
+```
+
+The fixture runs its own registry and player/application checks. After those checks,
+it also leaves a red test can, a pattern test can, and an M4 on the ground near the
+player so manual API-v1 painting and stripping can be verified without VPP/Admin tools.
+
+Search the RPT or script log for:
+
+```text
+[PaintZ][PackAPI Smoke]
+```
+
+Any `FAIL` line is an acceptance failure for the Paint Pack API runtime registry.
+See `paint-pack-api-fixture/README.md` for the exact cases covered.

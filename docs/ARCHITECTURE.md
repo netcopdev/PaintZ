@@ -12,13 +12,41 @@ The core must not gain a new persistence/state/network implementation for each c
 
 ## Runtime layers
 
-PaintZ deliberately separates three concerns:
+PaintZ deliberately separates four concerns:
 
-1. **Relevance / administration** — `paintz_items.json` domains and ordered include/exclude rules decide whether a new paint application should be considered.
-2. **Technical capability** — `PaintZ_PaintInspector` inspects the actual runtime hidden selections and conservatively chooses a safe body-like selection.
-3. **Existing PaintZ state** — the logical finish assignment, network synchronization and persistence belong to the physical `ItemBase` instance and are independent from current domains/policy.
+1. **Finish availability** — the Paint Pack API runtime registry discovers installed pack namespaces and finish definitions and resolves a canonical finish ID to explicitly declared assets.
+2. **Relevance / administration** — `paintz_items.json` domains and ordered include/exclude rules decide whether a new paint application should be considered.
+3. **Technical capability** — `PaintZ_PaintInspector` inspects the actual runtime hidden selections and conservatively chooses a safe body-like selection.
+4. **Existing PaintZ state** — the logical finish assignment, network synchronization and persistence belong to the physical `ItemBase` instance and are independent from current domains/policy or whether the finish pack is currently available.
 
-A domain can disappear after an item was painted. The existing finish must still restore and remain strippable.
+A domain can disappear after an item was painted. Likewise a paint pack can become temporarily unavailable. The historical finish ID must remain stored and the item must remain strippable.
+
+## Paint Pack API runtime registry
+
+The authoritative interoperability semantics are in `PAINT_PACK_API.md`; the current DayZ config representation is in `PAINT_PACK_CONFIG_V1.md`.
+
+API v1 uses one short canonical finish identity:
+
+```text
+<PREFIX>-<TYPE>-<SUFFIX>
+```
+
+Examples include `PZ-C-FTN`, `PZ-S-FDE` and third-party IDs such as `NCP-C-FTN`.
+
+PaintZ exposes `CfgPaintZPacks` and `CfgPaintZFinishes` discovery roots. Runtime initialization is two-phase:
+
+1. discover and validate namespace-owner declarations;
+2. only then validate/register finish declarations under active namespaces.
+
+No first-loaded-wins or last-loaded-wins behavior is permitted. Multiple owner declarations for the same prefix disable that namespace. Duplicate complete finish IDs are disabled rather than overwritten. The current int-hash network representation also requires finish hashes to remain unambiguous inside the active registry; a detected hash collision is rejected rather than silently resolving to the wrong finish.
+
+A finish config entry explicitly references the config child class that owns its prefix. This owner key is not a second public/persisted ID and is not a security credential; it is config-level linkage between finish declarations and the active namespace owner.
+
+PaintZ owns one generic paint action. A `PaintZ_SprayCanBase` subclass identifies its finish using `paintzFinish`; runtime behavior is resolved from the registry rather than generated per-finish action subclasses.
+
+Each finish declaration explicitly enumerates the surface assets PaintZ may apply, including any pattern-scale variants. Runtime code does not synthesize third-party texture paths from the finish ID.
+
+During migration, the current built-in generated `PZ-*` catalogue is bridged into the registry as an internal `PZ` owner. This bridge is temporary and must be removed when `PaintZ-Standard-Pack` becomes the external authoritative owner of `PZ`.
 
 ## Generic item state
 
@@ -32,7 +60,9 @@ A domain can disappear after an item was painted. The existing finish must still
 
 `PaintZ_PaintTarget` does not dispatch by category. It casts the target to `ItemBase` and updates the shared state.
 
-The pattern-scale percentage is networked because clients need to resolve the same derived surface texture, but it is not persistent logical state.
+The pattern-scale percentage is networked because clients need to resolve the same declared surface variant, but it is not persistent logical state.
+
+The complete finish string is retained authoritatively on the server/persistence path. Network replication currently uses the finish string's integer hash plus selection/scale because DayZ does not provide a normal `EntityAI` string net-sync variable. The runtime registry therefore rejects active finish-hash collisions. If a finish is unresolved client-side, the synchronized selection still indicates historical PaintZ state so stripping can remain available even though the unavailable finish name cannot be reconstructed from the hash alone.
 
 ## Persistence
 
@@ -52,7 +82,9 @@ Consequences:
 - when PaintZ is temporarily absent but CF remains loaded, CF preserves PaintZ's opaque unloaded-mod payload across subsequent saves;
 - removing CF as well is outside the persistence guarantee.
 
-Pattern scale is deliberately excluded from persistence. The stored finish ID remains stable while the visual scale can evolve with configuration. Visual restoration is deferred one call-queue turn after CF load so model/hidden-selection work is not performed inside the serializer. During that restore PaintZ remeasures the target and derives the current scale before applying the texture. Eligibility policy is not consulted while restoring historical state.
+Unknown/unregistered finish IDs are valid historical PaintZ state. If the owning pack is missing, conflicted or otherwise unavailable, PaintZ does not erase the stored string. It restores/keeps the original target visual where possible, keeps the logical ID on the server, and leaves Strip Paint available. Reinstalling the same valid finish later allows normal restoration again.
+
+Pattern scale is deliberately excluded from persistence. The stored finish ID remains stable while the visual scale can evolve with configuration and with the variants supplied by the currently installed pack. Visual restoration is deferred one call-queue turn after CF load so model/hidden-selection work is not performed inside the serializer. During that restore PaintZ remeasures the target and derives the current scale before applying the texture. Eligibility policy is not consulted while restoring historical state.
 
 ## Runtime item policy
 
@@ -98,9 +130,13 @@ If several selections remain ambiguous, PaintZ rejects the target instead of gue
 
 Pattern scale is derived visual state, not finish identity.
 
-For a patterned finish, the server uses `GetCollisionBox()` on the actual target and takes the longest local collision-box dimension as a generic physical-size proxy. `$profile:PaintZ/paintz_pattern_scaling.json` maps ascending maximum dimensions to scale values backed by generated texture variants.
+For a patterned finish, the server uses `GetCollisionBox()` on the actual target and takes the longest local collision-box dimension as a generic physical-size proxy. `$profile:PaintZ/paintz_pattern_scaling.json` maps ascending maximum dimensions to requested scale values.
 
-The generator owns the allowed scale set. Runtime config validation rejects any scale that has no generated asset. The existing 1x filename remains stable; additional variants use percentage suffixes such as `_s050`, `_s150` and `_s200`.
+Scale availability is **per finish**. The active paint pack explicitly declares every scale percentage available for each patterned finish. The runtime no longer assumes one global generated scale set for all packs and never invents an undeclared variant path.
+
+A configured scale must be a positive whole percentage up to 1000%. On application/restore, PaintZ asks whether the selected finish actually provides the requested percentage. If not, it falls back to that finish's configured default when available and finally to the mandatory 100% surface.
+
+The current legacy/Standard finishes expose the familiar 50%, 75%, 100%, 150%, 200% and 300% set, but third-party packs may legitimately expose a different subset as long as 100% exists.
 
 Scale is derived only at two lifecycle points:
 
@@ -109,11 +145,11 @@ Scale is derived only at two lifecycle points:
 
 Reloading the scale config does not enumerate or mutate already-loaded painted objects. The next application uses the new mapping immediately, and a later server restart/load re-derives the scale from the same persisted finish ID.
 
-The server synchronizes the chosen scale percentage with the existing ItemBase paint state so clients resolve the same texture path. Clients do not need a copy of the server scaling config.
+The server synchronizes the chosen scale percentage with the existing ItemBase paint state so clients resolve the same registered texture. Clients do not need a copy of the server scaling config.
 
 Longest collision-box size is intentionally an approximation rather than a promise of real-world texel density. Model UV layouts can differ significantly, including between similarly sized magazines, stocks, suppressors and optics. The design therefore improves consistency without introducing per-class compatibility tables.
 
-Solid paints always resolve to the normal 1x texture.
+Solid/non-pattern finishes always resolve to their normal 100% surface.
 
 ## Size-dependent action tuning
 
@@ -133,7 +169,7 @@ The active duration for an already-running action is fixed when its action compo
 
 Painting modifies the existing object with `SetObjectTexture()` and does not replace its classname. Health, ammunition, chamber state, attachments, cargo, inventory location and third-party state remain owned by DayZ/the original mod.
 
-Pattern scaling changes only which generated diffuse/coating texture path is selected. PaintZ still does not replace the target RVMat/material.
+Pattern scaling changes only which registered diffuse/coating texture is selected. PaintZ still does not replace the target RVMat/material.
 
 ## Boundary of universality
 

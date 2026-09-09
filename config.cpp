@@ -4,7 +4,6 @@ class CfgPatches
     {
         units[] =
         {
-            #include "tools\paintzgen\generated\dayz\PaintZ_Units.generated.inc"
             "PaintZ_PaintStripperCan"
         };
         weapons[] = {};
@@ -41,8 +40,7 @@ class CfgMods
                 value = "";
                 files[] =
                 {
-                    "PaintZ/Scripts/4_World",
-                    "PaintZ/tools/paintzgen/generated/dayz"
+                    "PaintZ/Scripts/4_World"
                 };
             };
 
@@ -58,6 +56,15 @@ class CfgMods
     };
 };
 
+// Paint Pack API v1 discovery roots. Paint packs add child classes here.
+class CfgPaintZPacks
+{
+};
+
+class CfgPaintZFinishes
+{
+};
+
 class CfgVehicles
 {
     class Spraycan_ColorBase;
@@ -66,8 +73,6 @@ class CfgVehicles
     {
         scope = 0;
 
-        // CMD_ACTIONFB_SPRAYPLANT emits these stock animation events. Keeping
-        // sound on the held item lets DayZ synchronize and spatialize it.
         class AnimEvents
         {
             class SoundWeapon
@@ -86,8 +91,6 @@ class CfgVehicles
         };
     };
 
-    #include "tools\paintzgen\generated\dayz\PaintZ_Paints.generated.inc"
-
     class PaintZ_PaintStripperCan : Spraycan_ColorBase
     {
         scope = 2;
@@ -95,8 +98,6 @@ class CfgVehicles
         descriptionShort = "Removes PaintZ paint and restores the original finish. Paint spray cans cannot strip paint.";
         hiddenSelectionsTextures[] = {"#(argb,8,8,3)color(0.65,0.18,0.04,1.0,CO)"};
 
-        // Strip Paint uses the same spray action command as painting, so the
-        // stripper must expose the same stock sound events on the held item.
         class AnimEvents
         {
             class SoundWeapon

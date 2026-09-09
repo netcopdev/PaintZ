@@ -35,7 +35,7 @@ class ActionPaintZStripPaint : ActionContinuousBase
             return false;
 
         EntityAI entity = PaintZ_PaintTarget.ResolvePaintedTarget(target);
-        if (PaintZ_PaintedState.GetPaintedSelection(entity) < 0)
+        if (!PaintZ_PaintedState.HasPaintState(entity))
             return false;
 
         float requiredStripper = PaintZ_ActionTuning.ResolveStripUsage(entity, stripper);
@@ -53,7 +53,7 @@ class ActionPaintZStripPaint : ActionContinuousBase
         EntityAI entity = PaintZ_PaintTarget.ResolvePaintedTarget(action_data.m_Target);
         PaintZ_PaintStripperCan stripper = PaintZ_PaintStripperCan.Cast(action_data.m_MainItem);
         PlayerBase player = action_data.m_Player;
-        if (!entity || !stripper || !player)
+        if (!entity || !stripper || !player || !PaintZ_PaintedState.HasPaintState(entity))
             return;
 
         float stripUsage = PaintZ_ActionTuning.ResolveStripUsage(entity, stripper);
@@ -63,15 +63,7 @@ class ActionPaintZStripPaint : ActionContinuousBase
             return;
         }
 
-        // Another player may have stripped it while this action was running.
         int selectionIndex = PaintZ_PaintedState.GetPaintedSelection(entity);
-        if (selectionIndex < 0)
-        {
-            PaintZ_PaintLog.Info("strip rejected target=" + entity.GetType() + " reason=No PaintZ painted state");
-            player.MessageStatus("This item has no PaintZ paint to strip.");
-            return;
-        }
-
         float effectiveDimensionMeters = PaintZ_ActionTuning.ResolveDimensionMeters(entity);
         if (!PaintZ_PaintTarget.SetPaint(entity, PaintZ_PaintConstants.PAINT_NONE, selectionIndex))
         {

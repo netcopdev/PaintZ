@@ -30,25 +30,36 @@ modded class ItemBase
     protected int m_PaintZPaintSelection = -1;
     protected int m_PaintZPaintCodeHash;
     protected int m_PaintZPatternScalePercent = 100;
+    protected bool m_PaintZHasState;
     protected bool m_PaintZRestoreQueued;
 
     void ItemBase()
     {
         RegisterNetSyncVariableInt("m_PaintZPaintCodeHash", int.MIN, int.MAX);
         RegisterNetSyncVariableInt("m_PaintZPaintSelection", -1, 255);
-
-        // Transient visual state only. CF persistence deliberately stores the
-        // finish ID and derives this scale again on repaint/post-load restore.
         RegisterNetSyncVariableInt("m_PaintZPatternScalePercent", 1, 1000);
+        RegisterNetSyncVariableBool("m_PaintZHasState");
     }
 
     bool PaintZ_SetPaintState(string paintCode, int selectionIndex)
     {
+        if (paintCode == PaintZ_PaintConstants.PAINT_NONE)
+        {
+            if (selectionIndex >= 0 && !PaintZ_PaintVisuals.Apply(this, paintCode, selectionIndex, 100))
+                return false;
+
+            m_PaintZPaintCode = PaintZ_PaintConstants.PAINT_NONE;
+            m_PaintZPaintSelection = -1;
+            m_PaintZPaintCodeHash = 0;
+            m_PaintZPatternScalePercent = 100;
+            m_PaintZHasState = false;
+            SetSynchDirty();
+            return true;
+        }
+
         int scalePercent = 100;
         float maxDimensionMeters = -1.0;
-
-        if (paintCode != PaintZ_PaintConstants.PAINT_NONE)
-            scalePercent = PaintZ_PatternScaling.ResolveScalePercent(this, paintCode, maxDimensionMeters);
+        scalePercent = PaintZ_PatternScaling.ResolveScalePercent(this, paintCode, maxDimensionMeters);
 
         if (!PaintZ_PaintVisuals.Apply(this, paintCode, selectionIndex, scalePercent))
             return false;
@@ -57,9 +68,10 @@ modded class ItemBase
         m_PaintZPaintSelection = selectionIndex;
         m_PaintZPaintCodeHash = PaintZ_PaintStateRuntime.GetNetworkHash(paintCode);
         m_PaintZPatternScalePercent = scalePercent;
+        m_PaintZHasState = true;
         SetSynchDirty();
 
-        if (PaintZ_PaintCatalog.IsPatternPaint(paintCode))
+        if (PaintZ_PaintPackRegistry.IsPatternFinish(paintCode))
         {
             float selectedScale = scalePercent * 0.01;
             string logText = "pattern_scale target=" + GetType();
@@ -86,6 +98,11 @@ modded class ItemBase
         return m_PaintZPatternScalePercent;
     }
 
+    bool PaintZ_HasState()
+    {
+        return m_PaintZHasState;
+    }
+
     protected string PaintZ_GetDisplayFinishName()
     {
         return PaintZ_ItemDisplay.ResolveFinishName(m_PaintZPaintCode);
@@ -95,7 +112,6 @@ modded class ItemBase
     {
         string baseName;
         bool hasUpstreamOverride = super.NameOverride(baseName);
-
         if (m_PaintZPaintCode == PaintZ_PaintConstants.PAINT_NONE)
         {
             output = baseName;
@@ -107,8 +123,7 @@ modded class ItemBase
         else
             g_Game.ObjectGetDisplayName(this, baseName);
 
-        string finishName = PaintZ_GetDisplayFinishName();
-        output = PaintZ_ItemDisplay.FormatDisplayName(baseName, finishName);
+        output = PaintZ_ItemDisplay.FormatDisplayName(baseName, PaintZ_GetDisplayFinishName());
         return true;
     }
 
@@ -116,7 +131,6 @@ modded class ItemBase
     {
         string baseDescription;
         bool hasUpstreamOverride = super.DescriptionOverride(baseDescription);
-
         if (m_PaintZPaintCode == PaintZ_PaintConstants.PAINT_NONE)
         {
             output = baseDescription;
@@ -125,11 +139,8 @@ modded class ItemBase
 
         if (!hasUpstreamOverride)
             baseDescription = ConfigGetString("descriptionShort");
-
         baseDescription = Widget.TranslateString(baseDescription);
-
-        string finishName = PaintZ_GetDisplayFinishName();
-        output = PaintZ_ItemDisplay.FormatDescription(baseDescription, finishName, m_PaintZPaintCode);
+        output = PaintZ_ItemDisplay.FormatDescription(baseDescription, PaintZ_GetDisplayFinishName(), m_PaintZPaintCode);
         return true;
     }
 
@@ -139,16 +150,14 @@ modded class ItemBase
         m_PaintZPaintSelection = -1;
         m_PaintZPaintCodeHash = PaintZ_PaintStateRuntime.GetNetworkHash(paintCode);
         m_PaintZPatternScalePercent = 100;
+        m_PaintZHasState = paintCode != PaintZ_PaintConstants.PAINT_NONE;
     }
 
     void PaintZ_QueueLoadedPaintRestore()
     {
-        if (m_PaintZRestoreQueued || m_PaintZPaintCode == PaintZ_PaintConstants.PAINT_NONE || !GetGame())
+        if (m_PaintZRestoreQueued || !m_PaintZHasState || !GetGame())
             return;
 
-        // CF_OnStoreLoad runs inside the persistence serializer. Defer only the
-        // model/hidden-selection work so every ItemBase descendant uses the same
-        // persistence hook without depending on subclass AfterStoreLoad chains.
         m_PaintZRestoreQueued = true;
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(PaintZ_RestoreLoadedPaintDeferred, 0, false);
     }
@@ -163,12 +172,11 @@ modded class ItemBase
     {
         int restoredSelection = -1;
         int restoredScalePercent = 100;
-
         PaintZ_PaintStateRuntime.RestorePersistedVisual(this, m_PaintZPaintCode, restoredSelection, restoredScalePercent);
-
         m_PaintZPaintSelection = restoredSelection;
         m_PaintZPatternScalePercent = restoredScalePercent;
         m_PaintZPaintCodeHash = PaintZ_PaintStateRuntime.GetNetworkHash(m_PaintZPaintCode);
+        m_PaintZHasState = m_PaintZPaintCode != PaintZ_PaintConstants.PAINT_NONE;
         if (GetGame().IsServer())
             SetSynchDirty();
     }
@@ -196,10 +204,10 @@ modded class ItemBase
     override void OnVariablesSynchronized()
     {
         super.OnVariablesSynchronized();
-        if (m_PaintZPaintSelection < 0)
+        m_PaintZPaintCode = PaintZ_PaintStateRuntime.GetNetworkPaintCode(m_PaintZPaintCodeHash);
+        if (!m_PaintZHasState || m_PaintZPaintSelection < 0)
             return;
 
-        m_PaintZPaintCode = PaintZ_PaintStateRuntime.GetNetworkPaintCode(m_PaintZPaintCodeHash);
         PaintZ_PaintVisuals.Apply(this, m_PaintZPaintCode, m_PaintZPaintSelection, m_PaintZPatternScalePercent);
     }
 };

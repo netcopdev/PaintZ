@@ -1,7 +1,7 @@
 class PaintZ_PaintConstants
 {
-    // A paint's product code is its sole persistent identity. Pattern scale is
-    // derived visual state and must never become part of the product ID.
+    // A finish's complete Paint Pack API ID is its sole persistent identity.
+    // Pattern scale is derived visual state and never becomes part of the ID.
     static const string PAINT_NONE = "";
 
     static string GetSurfaceTexture(string paintCode, int scalePercent = 100)
@@ -9,27 +9,11 @@ class PaintZ_PaintConstants
         if (paintCode == PAINT_NONE)
             return "";
 
-        string textureStem = paintCode;
-        textureStem.ToLower();
-        textureStem.Replace("-", "_");
-
-        if (!PaintZ_PaintCatalog.IsPatternPaint(paintCode) || !PaintZ_PaintCatalog.IsSupportedPatternScale(scalePercent))
-            scalePercent = 100;
-
-        if (scalePercent == 100)
-            return "paintz\\data\\surfaces\\" + textureStem + "_co.paa";
-
-        string scaleText = "" + scalePercent;
-        if (scalePercent < 10)
-            scaleText = "00" + scaleText;
-        else if (scalePercent < 100)
-            scaleText = "0" + scaleText;
-
-        return "paintz\\data\\surfaces\\" + textureStem + "_s" + scaleText + "_co.paa";
+        return PaintZ_PaintPackRegistry.GetSurfaceTexture(paintCode, scalePercent);
     }
 
     static string GetFinishName(string paintCode)
     {
-        return PaintZ_PaintCatalog.GetFinishName(paintCode);
+        return PaintZ_PaintPackRegistry.GetFinishName(paintCode);
     }
 };

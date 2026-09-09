@@ -52,15 +52,16 @@ class PaintZ_PatternScaling
     static int ResolveScalePercent(EntityAI target, string paintCode, out float maxDimensionMeters)
     {
         maxDimensionMeters = -1.0;
-
-        if (!target || paintCode == PaintZ_PaintConstants.PAINT_NONE || !PaintZ_PaintCatalog.IsPatternPaint(paintCode))
+        if (!target || paintCode == PaintZ_PaintConstants.PAINT_NONE || !PaintZ_PaintPackRegistry.IsPatternFinish(paintCode))
             return 100;
 
         if (!s_ActiveConfig || !s_ActiveConfig.enabled)
             return 100;
 
         int defaultScalePercent;
-        if (!ResolveSupportedScalePercent(s_ActiveConfig.default_scale, defaultScalePercent))
+        if (!NormalizeScalePercent(s_ActiveConfig.default_scale, defaultScalePercent))
+            defaultScalePercent = 100;
+        if (!PaintZ_PaintPackRegistry.SupportsPatternScale(paintCode, defaultScalePercent))
             defaultScalePercent = 100;
 
         float measuredDimensionMeters = -1.0;
@@ -68,21 +69,25 @@ class PaintZ_PatternScaling
             return defaultScalePercent;
 
         maxDimensionMeters = measuredDimensionMeters;
-
+        int desiredScalePercent = defaultScalePercent;
         for (int i = 0; s_ActiveConfig.ranges && i < s_ActiveConfig.ranges.Count(); i++)
         {
             PaintZ_PatternScaleRange range = s_ActiveConfig.ranges.Get(i);
             if (maxDimensionMeters <= range.max_dimension_m)
             {
                 int rangeScalePercent;
-                if (ResolveSupportedScalePercent(range.scale, rangeScalePercent))
-                    return rangeScalePercent;
-
-                return defaultScalePercent;
+                if (NormalizeScalePercent(range.scale, rangeScalePercent))
+                    desiredScalePercent = rangeScalePercent;
+                break;
             }
         }
 
-        return defaultScalePercent;
+        if (PaintZ_PaintPackRegistry.SupportsPatternScale(paintCode, desiredScalePercent))
+            return desiredScalePercent;
+        if (PaintZ_PaintPackRegistry.SupportsPatternScale(paintCode, defaultScalePercent))
+            return defaultScalePercent;
+
+        return 100;
     }
 
     static bool GetMaxDimensionMeters(EntityAI target, out float maxDimensionMeters)
@@ -146,7 +151,6 @@ class PaintZ_PatternScaling
         }
 
         s_ActiveConfig = candidate;
-
         if (periodic)
             Info("config successfully reloaded enabled=" + candidate.enabled + " ranges=" + candidate.ranges.Count());
         else
@@ -157,9 +161,6 @@ class PaintZ_PatternScaling
         else
             Info("reload mode=periodic interval_seconds=" + candidate.reload_seconds);
 
-        // Deliberately do not scan/reapply existing items here. A new mapping is
-        // consumed on the next repaint or when persisted paint is restored after
-        // a server restart/load.
         ScheduleNextReload();
         return true;
     }
@@ -197,9 +198,9 @@ class PaintZ_PatternScaling
         }
 
         int defaultScalePercent;
-        if (!ResolveSupportedScalePercent(config.default_scale, defaultScalePercent))
+        if (!NormalizeScalePercent(config.default_scale, defaultScalePercent))
         {
-            error = "default_scale=" + config.default_scale + " has no generated PaintZ pattern asset";
+            error = "default_scale=" + config.default_scale + " must be greater than 0, no more than 10.0, and resolve to a whole percentage";
             return false;
         }
 
@@ -229,9 +230,9 @@ class PaintZ_PatternScaling
             }
 
             int scalePercent;
-            if (!ResolveSupportedScalePercent(range.scale, scalePercent))
+            if (!NormalizeScalePercent(range.scale, scalePercent))
             {
-                error = "range " + i + " scale=" + range.scale + " has no generated PaintZ pattern asset";
+                error = "range " + i + " scale=" + range.scale + " must be greater than 0, no more than 10.0, and resolve to a whole percentage";
                 return false;
             }
 
@@ -241,17 +242,14 @@ class PaintZ_PatternScaling
         return true;
     }
 
-    protected static bool ResolveSupportedScalePercent(float scale, out int scalePercent)
+    protected static bool NormalizeScalePercent(float scale, out int scalePercent)
     {
         scalePercent = Math.Round(scale * 100.0);
         if (scalePercent <= 0 || scalePercent > 1000)
             return false;
 
         float normalizedScale = scalePercent * 0.01;
-        if (Math.AbsFloat(normalizedScale - scale) > 0.0001)
-            return false;
-
-        return PaintZ_PaintCatalog.IsSupportedPatternScale(scalePercent);
+        return Math.AbsFloat(normalizedScale - scale) <= 0.0001;
     }
 
     protected static void ScheduleNextReload()

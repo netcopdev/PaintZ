@@ -2,6 +2,10 @@
 
 Before modifying, creating, deleting, renaming, generating, rebasing, or moving any repository work, you MUST read `docs/CODEX_PROJECT_RULES.md` completely and follow it together with this file.
 
+For any work involving paint packs, finish registration/identity, spray-can pack integration, PackKit output, namespace handling, or cross-repository interoperability, you MUST also read and follow `docs/PAINT_PACK_API.md`. That file is the authoritative interoperability contract for PaintZ, PaintZ-PackKit, and PaintZ-Standard-Pack.
+
+When the work touches the concrete DayZ config representation, runtime registry/discovery, generated pack config, thin can classes, finish surfaces, or conformance tests, you MUST also read `docs/PAINT_PACK_CONFIG_V1.md`. It defines the current API-v1 config representation and must remain consistent with the higher-level `docs/PAINT_PACK_API.md` contract.
+
 ## Mandatory Git and dependency preflight
 
 Before any repository change, inspect:
