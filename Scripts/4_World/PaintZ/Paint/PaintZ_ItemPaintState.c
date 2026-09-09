@@ -191,10 +191,10 @@ modded class ItemBase
     override void OnVariablesSynchronized()
     {
         super.OnVariablesSynchronized();
+        m_PaintZPaintCode = PaintZ_PaintStateRuntime.GetNetworkPaintCode(m_PaintZPaintCodeHash);
         if (m_PaintZPaintSelection < 0)
             return;
 
-        m_PaintZPaintCode = PaintZ_PaintStateRuntime.GetNetworkPaintCode(m_PaintZPaintCodeHash);
         PaintZ_PaintVisuals.Apply(this, m_PaintZPaintCode, m_PaintZPaintSelection, m_PaintZPatternScalePercent);
     }
 };
