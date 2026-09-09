@@ -74,6 +74,7 @@ class PaintZ_FinishSmokeTest
         loadedPaint = "";
         PaintZ_PersistenceReadResult unknownResult = PaintZ_PaintPersistence.Load(readContext, null, loadedPaint);
         Check(unknownResult == PaintZ_PersistenceReadResult.PZ_PERSISTENCE_VALID && loadedPaint == unavailablePaint, "unknown finish ID is preserved");
+        Check(PaintZ_PaintStateRuntime.GetNetworkHash(unavailablePaint) == 0, "unknown finish ID is not exposed as an active network hash");
 
         int paintHash = PaintZ_PaintStateRuntime.GetNetworkHash(paintCodes[0]);
         Check(PaintZ_PaintStateRuntime.GetNetworkPaintCode(paintHash) == paintCodes[0], "finish ID network lookup round trip");
@@ -192,6 +193,7 @@ class PaintZ_FinishSmokeTest
             return;
         stripper.SetQuantity(stripper.GetQuantityMax());
         float quantity = stripper.GetQuantity();
+        float stripUsage = PaintZ_ActionTuning.ResolveStripUsage(item, stripper);
         int selection = PaintZ_PaintInspector.Inspect(item).m_SelectionIndex;
         PaintZ_PaintTarget.SetPaint(item, paintCodes[0], selection);
         ActionData data = new ActionData;
@@ -204,9 +206,10 @@ class PaintZ_FinishSmokeTest
         data.m_MainItem = stripper;
         action.OnFinishProgressServer(data);
         Check(!PaintZ_PaintVisuals.HasPaint(item, selection), "stripper completion removes paint");
-        Check(stripper.GetQuantity() == quantity - PaintZ_PaintConstants.STRIP_COST, "stripper completion consumes quantity");
+        float expectedAfterStrip = quantity - stripUsage;
+        Check(Math.AbsFloat(stripper.GetQuantity() - expectedAfterStrip) < 0.01, "stripper completion consumes configured quantity");
         action.OnFinishProgressServer(data);
-        Check(stripper.GetQuantity() == quantity - PaintZ_PaintConstants.STRIP_COST, "stale strip consumes nothing");
+        Check(Math.AbsFloat(stripper.GetQuantity() - expectedAfterStrip) < 0.01, "stale strip consumes nothing");
         GetGame().ObjectDelete(item);
         GetGame().ObjectDelete(stripper);
         GetGame().ObjectDelete(paintCan);
@@ -263,7 +266,7 @@ class PaintZ_FinishSmokeTest
         {
             ItemBase excludedCan = ItemBase.Cast(GetGame().CreateObjectEx("PaintZ_SprayCan_ODG", "4580 0 10200", ECE_PLACE_ON_SURFACE));
             ActionTarget excludedTarget = new ActionTarget(weapon, null, -1, weapon.GetPosition(), 0);
-            ActionPaintZPaintBase excludedAction = new ActionPaintZPaint_S_ODG;
+            ActionPaintZPaint excludedAction = new ActionPaintZPaint;
             Check(excludedCan && excludedAction && !excludedAction.ActionCondition(null, excludedTarget, excludedCan), "excluded target does not offer Paint action");
             GetGame().ObjectDelete(excludedCan);
         }
@@ -435,8 +438,8 @@ class PaintZ_FinishSmokeTest
         can.SetQuantity(can.GetQuantityMax());
         float quantity = can.GetQuantity();
         ActionTarget target = new ActionTarget(item, null, -1, item.GetPosition(), 0);
-        ActionPaintZPaint_S_ODG action = new ActionPaintZPaint_S_ODG;
-        Check(action.ActionCondition(player, target, can), "paint action starts while policy allows");
+        ActionPaintZPaint action = new ActionPaintZPaint;
+        Check(action.ActionCondition(player, target, can), "generic paint action starts while policy allows");
 
         PaintZ_ItemPolicyConfig excluded = MakePolicy("allow");
         excluded.rules.Insert(MakePatternRule("exclude", "weapon", "M4*"));
@@ -520,7 +523,8 @@ class PaintZ_FinishSmokeTest
             if (PaintZ_PaintStripperCan.Cast(can))
             {
                 Check(!PaintZ_SprayCanBase.Cast(can), "stripper is not a paint can");
-                can.SetQuantity(PaintZ_PaintConstants.STRIP_COST - 1);
+                float requiredStripper = PaintZ_ActionTuning.ResolveStripUsage(item, can);
+                can.SetQuantity(requiredStripper * 0.5);
                 Check(!action.ActionCondition(null, target, can), "insufficient stripper rejected");
             }
             if (can)
@@ -577,4 +581,3 @@ class PaintZ_FinishSmokeTest
         GetGame().ObjectDelete(item);
     }
 };
-
