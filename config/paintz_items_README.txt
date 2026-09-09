@@ -31,20 +31,44 @@ domains          Target-domain array. Missing or empty uses the shipped
 rules            JSON array of rule objects. Missing or empty means that
                  default_action is the complete policy.
 
+Selector naming convention
+--------------------------
+Where a selector can sensibly accept one or several alternatives, PaintZ accepts
+both a singular field and its plural array form. If both forms are present, they
+are combined into one OR group. This convention is shared by domains and rules
+for selectors that exist in both places.
+
+Examples:
+  "type" / "types"
+  "class_pattern" / "class_patterns"
+  "inventory_slot" / "inventory_slots"
+  "inventory_slot_pattern" / "inventory_slot_patterns"
+
+Different selector families inside the same domain/rule are AND. Alternatives
+inside one selector family are OR.
+
 Target domains
 --------------
-Separate entries are OR. Within one entry, all supplied fields are AND. At
-least one field is required.
+Separate domain entries are OR. Within one entry, different supplied selector
+families are AND. Singular and plural values in the same family are OR. At least
+one selector family is required.
 
-type                    DayZ base/config class matched by inheritance. PaintZ
-                        also recognizes ItemBase, InventoryItemBase,
-                        InventoryItemSuper, Weapon_Base and Magazine_Base.
-                        Magazine_Base excludes ammo piles.
-class_pattern           Case-insensitive runtime classname match using * and ?.
-inventory_slot          Case-insensitive exact match against one of the item's
-                        declared compatible inventorySlot values.
-inventory_slot_pattern  Case-insensitive * / ? match against the item's declared
-                        compatible inventorySlot values.
+type / types
+  DayZ base/config class matched by inheritance. PaintZ also recognizes
+  ItemBase, InventoryItemBase, InventoryItemSuper, Weapon_Base and Magazine_Base.
+  Magazine_Base excludes ammo piles. "types" is an OR-list.
+
+class_pattern / class_patterns
+  Case-insensitive runtime classname match using * and ?. "class_patterns" is an
+  OR-list of globs.
+
+inventory_slot / inventory_slots
+  Case-insensitive exact match against the item's declared compatible
+  inventorySlot values. "inventory_slots" is an OR-list.
+
+inventory_slot_pattern / inventory_slot_patterns
+  Case-insensitive * / ? match against declared compatible inventorySlot values.
+  "inventory_slot_patterns" is an OR-list.
 
 Slot selectors inspect the class config, not the item's current attachment
 location. A loose stock, optic, suppressor or flashlight on the ground can still
@@ -56,10 +80,22 @@ hard-coded PaintZ categories. Other ordinary ItemBase families can be added in
 JSON with no new PaintZ state/persistence/dispatch code.
 
 Examples:
-  {"inventory_slot_pattern":"weapon*"}
-  {"inventory_slot_pattern":"pistol*"}
-  {"inventory_slot":"weaponOptics"}
-  {"class_pattern":"SmallProtectorCase"}
+  {"types":["Weapon_Base","Magazine_Base"]}
+  {"inventory_slot_patterns":["weapon*","pistol*","suppressor*"]}
+  {"inventory_slots":["weaponOptics","pistolOptics"]}
+  {"class_patterns":["SmallProtectorCase","MyMod_*Case"]}
+
+A compound domain:
+  {
+    "types": ["ItemBase", "Inventory_Base"],
+    "class_patterns": ["TTC_*", "MMG_*"],
+    "inventory_slot_patterns": ["*optic*", "*scope*"]
+  }
+
+means:
+  (ItemBase OR Inventory_Base)
+  AND (TTC_* OR MMG_*)
+  AND (*optic* OR *scope*)
 
 Domains control new painting and feedback only. To intentionally match no
 objects, use a valid nonmatching domain such as
@@ -74,21 +110,30 @@ Different selector groups inside ONE rule are AND. Multiple values inside the
 same selector group are OR. Singular and plural forms of the same selector are
 combined into the same OR group.
 
-action                    "include" or "exclude".
-type                      Optional scope. Omit it or use "all" for all configured
-                          domains. Otherwise use any valid DayZ base/config class.
-                          Legacy values "weapon" and "magazine" remain accepted.
-class_pattern             Single case-insensitive classname glob using * and ?.
-class_patterns            OR-list of classname globs.
-inherits                  Single DayZ config inheritance selector.
-inherits_any              OR-list of inheritance selectors.
-inventory_slot            Single exact declared-slot selector.
-inventory_slots           OR-list of exact declared-slot selectors.
-inventory_slot_pattern    Single wildcard declared-slot selector.
-inventory_slot_patterns   OR-list of wildcard declared-slot selectors.
+action
+  "include" or "exclude".
 
-Each rule must contain at least one selector. type is a scope, not a selector.
-Empty strings inside plural selector arrays are invalid.
+type / types
+  Optional scope. Omit both or use "all" for all configured domains. Otherwise
+  use any valid DayZ base/config class. Legacy values "weapon" and "magazine"
+  remain accepted in rules. "types" is an OR-list; singular + plural combine.
+
+class_pattern / class_patterns
+  Single classname glob / OR-list of classname globs.
+
+inherits / inherits_any
+  Single DayZ config inheritance selector / OR-list of inheritance selectors.
+
+inventory_slot / inventory_slots
+  Single exact declared-slot selector / OR-list of exact declared-slot selectors.
+
+inventory_slot_pattern / inventory_slot_patterns
+  Single wildcard declared-slot selector / OR-list of wildcard declared-slot
+  selectors.
+
+Each rule must contain at least one non-type selector. type/types are scope, not
+selectors. Empty strings inside plural arrays are invalid. Empty arrays simply add
+no alternatives.
 
 Valid JSON examples
 -------------------
@@ -103,17 +148,17 @@ Exclude several optic classes in one rule:
 }
 
 Exclude TTC/MMG optics only. The class group is OR, then ANDed with the slot
-condition:
+group:
 {
   "action": "exclude",
   "class_patterns": ["TTC_*", "MMG_*"],
-  "inventory_slot_pattern": "*optics*"
+  "inventory_slot_patterns": ["*optics*", "*scope*"]
 }
 
-Scope a class pattern to weapons only:
+Scope a class pattern to either weapons or magazines:
 {
   "action": "exclude",
-  "type": "Weapon_Base",
+  "types": ["Weapon_Base", "Magazine_Base"],
   "class_pattern": "TTC_*"
 }
 
@@ -126,6 +171,14 @@ Singular + plural values of the same selector are OR:
 
 The previous rule matches Vanilla_* OR TTC_* OR MMG_*.
 
+The same is true for type scope:
+{
+  "action": "exclude",
+  "type": "Weapon_Base",
+  "types": ["Magazine_Base", "Inventory_Base"],
+  "class_pattern": "Example_*"
+}
+
 Exclude everything declaring either of two exact attachment slots:
 {
   "action": "exclude",
@@ -135,10 +188,10 @@ Exclude everything declaring either of two exact attachment slots:
 Allow a narrower slot family again by placing this later in rules:
 {
   "action": "include",
-  "inventory_slot_pattern": "weaponOptics*"
+  "inventory_slot_patterns": ["weaponOptics*", "pistolOptics*"]
 }
 
-A rule that applies to every configured target domain can omit type:
+A rule that applies to every configured target domain can omit type/types:
 {
   "action": "exclude",
   "class_pattern": "BrokenPaint_*"
