@@ -22,6 +22,10 @@ class PaintZ_NewPaintEvaluation
         if (!spray || !actionTarget)
             return evaluation;
 
+        string paintCode = spray.GetPaintZPaintCode();
+        if (!PaintZ_PaintPackRegistry.HasFinish(paintCode))
+            return evaluation;
+
         evaluation.m_Target = PaintZ_PaintTarget.ResolveNewPaintTarget(actionTarget);
         if (!PaintZ_ItemPolicy.IsRelevantTarget(evaluation.m_Target))
             return evaluation;
