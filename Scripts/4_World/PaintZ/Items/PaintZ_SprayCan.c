@@ -7,10 +7,14 @@ class PaintZ_SprayCanBase extends Spraycan_ColorBase
 
     string GetPaintZPaintCode()
     {
-        string paintCode;
-        GetGame().ConfigGetText("CfgVehicles " + GetType() + " paintzFinish", paintCode);
-        if (paintCode == "")
-            GetGame().ConfigGetText("CfgVehicles " + GetType() + " paintzCode", paintCode);
+        string path = "CfgVehicles " + GetType();
+        string paintCode = "";
+
+        if (GetGame().ConfigIsExisting(path + " paintzFinish"))
+            GetGame().ConfigGetText(path + " paintzFinish", paintCode);
+
+        if (paintCode == "" && GetGame().ConfigIsExisting(path + " paintzCode"))
+            GetGame().ConfigGetText(path + " paintzCode", paintCode);
 
         paintCode.ToUpper();
         return paintCode;
