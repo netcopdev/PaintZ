@@ -3,7 +3,7 @@ class ActionPaintZStripPaint : ActionContinuousBase
     void ActionPaintZStripPaint()
     {
         m_CallbackClass = ActionPaintZPaintCB;
-        m_CommandUID = DayZPlayerConstants.CMD_ACTIONFB_INTERACT;
+        m_CommandUID = DayZPlayerConstants.CMD_ACTIONFB_SPRAYPLANT;
         m_FullBody = true;
         m_StanceMask = DayZPlayerConstants.STANCEMASK_ERECT | DayZPlayerConstants.STANCEMASK_CROUCH;
     }
