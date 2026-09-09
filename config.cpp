@@ -94,5 +94,24 @@ class CfgVehicles
         displayName = "Paint Stripper";
         descriptionShort = "Removes PaintZ paint and restores the original finish. Paint spray cans cannot strip paint.";
         hiddenSelectionsTextures[] = {"#(argb,8,8,3)color(0.65,0.18,0.04,1.0,CO)"};
+
+        // Strip Paint uses the same spray action command as painting, so the
+        // stripper must expose the same stock sound events on the held item.
+        class AnimEvents
+        {
+            class SoundWeapon
+            {
+                class PaintZ_DisinfectantLoop
+                {
+                    soundSet = "disinfectant_loop_SoundSet";
+                    id = 212;
+                };
+                class PaintZ_DisinfectantLoop2
+                {
+                    soundSet = "disinfectant_loop_SoundSet";
+                    id = 213;
+                };
+            };
+        };
     };
 };
