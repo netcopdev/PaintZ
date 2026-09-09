@@ -25,6 +25,7 @@ assert suggest_suffix('Black') == 'BLK'
 assert suggest_suffix('Flat Dark Earth') == 'FDE'
 assert suggest_suffix('Universal Camouflage Pattern') == 'UCP'
 assert suggest_suffix('Woodland') == 'WDL'
+assert suggest_suffix('Flecktarn') == 'FTN'
 code, suggested = code_for_paint({'name':'Desert Tan','type':'solid','color':'#B49A72'})
 assert code == 'PZ-S-DTN' and suggested
 
