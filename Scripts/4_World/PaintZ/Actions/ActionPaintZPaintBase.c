@@ -30,10 +30,26 @@ class ActionPaintZPaintBase : ActionContinuousBase
         return PaintZ_PaintConstants.PAINT_NONE;
     }
 
+    protected string ResolvePaintCode(PaintZ_SprayCanBase spray)
+    {
+        string actionPaintCode = GetPaintCode();
+        if (actionPaintCode != PaintZ_PaintConstants.PAINT_NONE)
+            return actionPaintCode;
+
+        if (!spray)
+            return PaintZ_PaintConstants.PAINT_NONE;
+
+        return spray.GetPaintZPaintCode();
+    }
+
     override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
     {
         PaintZ_SprayCanBase spray = PaintZ_SprayCanBase.Cast(item);
-        if (!spray || spray.GetPaintZPaintCode() != GetPaintCode() || !target)
+        if (!spray || !target)
+            return false;
+
+        string paintCode = ResolvePaintCode(spray);
+        if (paintCode == PaintZ_PaintConstants.PAINT_NONE || spray.GetPaintZPaintCode() != paintCode || !PaintZ_PaintPackRegistry.HasFinish(paintCode))
             return false;
 
         PaintZ_NewPaintEvaluation evaluation = PaintZ_NewPaintEvaluation.Evaluate(target, item);
@@ -48,9 +64,9 @@ class ActionPaintZPaintBase : ActionContinuousBase
 
         PaintZ_SprayCanBase spray = PaintZ_SprayCanBase.Cast(action_data.m_MainItem);
         PlayerBase player = action_data.m_Player;
-        string paintCode = GetPaintCode();
+        string paintCode = ResolvePaintCode(spray);
 
-        if (!spray || !player || spray.GetPaintZPaintCode() != paintCode)
+        if (!spray || !player || paintCode == PaintZ_PaintConstants.PAINT_NONE || spray.GetPaintZPaintCode() != paintCode || !PaintZ_PaintPackRegistry.HasFinish(paintCode))
             return;
 
         PaintZ_NewPaintEvaluation evaluation = PaintZ_NewPaintEvaluation.Evaluate(action_data.m_Target, action_data.m_MainItem);
