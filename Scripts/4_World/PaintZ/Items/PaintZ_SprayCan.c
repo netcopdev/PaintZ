@@ -8,21 +8,20 @@ class PaintZ_SprayCanBase extends Spraycan_ColorBase
     string GetPaintZPaintCode()
     {
         string paintCode;
-        GetGame().ConfigGetText("CfgVehicles " + GetType() + " paintzCode", paintCode);
+        GetGame().ConfigGetText("CfgVehicles " + GetType() + " paintzFinish", paintCode);
+        if (paintCode == "")
+            GetGame().ConfigGetText("CfgVehicles " + GetType() + " paintzCode", paintCode);
+
+        paintCode.ToUpper();
         return paintCode;
     }
 
     override void SetActions()
     {
         super.SetActions();
-
-        // DayZ builds and shares this action map by script class, while all
-        // generated config variants currently use PaintZ_SprayCanBase. Attach
-        // every generated action to that shared map and let each action's
-        // paint-code condition select the matching can at interaction time.
-        PaintZ_PaintCatalog.AttachActionsToCan(this);
+        AddAction(ActionPaintZPaint);
         AddAction(ActionPaintZCannotPaint);
-        Print("[PaintZ][Actions] Attached paint actions to: " + GetType());
+        Print("[PaintZ][Actions] Attached generic paint actions to: " + GetType());
     }
 };
 
