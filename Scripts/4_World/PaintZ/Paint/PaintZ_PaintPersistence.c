@@ -14,7 +14,6 @@ class PaintZ_PaintPersistence
 
     static void Save(CF_ModStorageMap storage, EntityAI target, string paintCode)
     {
-        // Absence of a PaintZ ModStorage entry is the canonical unpainted state.
         if (paintCode == PaintZ_PaintConstants.PAINT_NONE)
             return;
 
@@ -25,22 +24,16 @@ class PaintZ_PaintPersistence
             return;
         }
 
-        // The finish ID is the entire persistent PaintZ state. Pattern scale,
-        // derived texture path and selection index are intentionally transient.
         ctx.Write(paintCode);
     }
 
     static bool Load(CF_ModStorageMap storage, EntityAI target, out string paintCode)
     {
         paintCode = PaintZ_PaintConstants.PAINT_NONE;
-
         CF_ModStorage ctx = storage[STORAGE_KEY];
         if (!ctx)
             return true;
 
-        // PaintZ persistence must never make the underlying DayZ item fail to
-        // load. Bad/unsupported PaintZ data is isolated to PaintZ state: warn,
-        // leave the item unpainted for this load, and keep the entity usable.
         if (ctx.GetVersion() != STORAGE_VERSION)
         {
             Warn(target, "unsupported storage version=" + ctx.GetVersion() + "; ignoring PaintZ state");
@@ -61,13 +54,11 @@ class PaintZ_PaintPersistence
             return true;
         }
 
+        paintCode.ToUpper();
         return true;
     }
 
 #ifdef DIAG_DEVELOPER
-    // Sandbox codec adapter only. Production persistence never uses the flat
-    // native stream; these overloads keep the existing isolated smoke test able
-    // to test marker/version/unknown-ID handling without changing the CF design.
     static void Save(ParamsWriteContext ctx, string paintCode)
     {
         TStringArray payload = new TStringArray();
@@ -131,38 +122,37 @@ class PaintZ_PaintStateRuntime
         if (paintHash == 0)
             return PaintZ_PaintConstants.PAINT_NONE;
 
-        return PaintZ_PaintCatalog.GetPaintCodeByNetworkHash(paintHash);
+        return PaintZ_PaintPackRegistry.GetFinishIdByNetworkHash(paintHash);
     }
 
     static bool RestorePersistedVisual(EntityAI target, string paintCode, out int selectionIndex, out int scalePercent)
     {
         selectionIndex = -1;
         scalePercent = 100;
-
         if (!target || paintCode == PaintZ_PaintConstants.PAINT_NONE)
             return true;
-
-        if (!PaintZ_PaintCatalog.HasPaintCode(paintCode))
-        {
-            PaintZ_PaintLog.Warning("persistence target=" + target.GetType() + " unknown_finish=" + paintCode + " state preserved");
-            return false;
-        }
 
         PaintZ_PaintInspectionResult inspection = PaintZ_PaintInspector.Inspect(target);
         if (!inspection.m_Paintable)
         {
-            PaintZ_PaintLog.Warning("persistence target=" + target.GetType() + " finish=" + paintCode + " visual_restore_failed=" + inspection.m_Reason);
+            PaintZ_PaintLog.Warning("persistence target=" + target.GetType() + " finish=" + paintCode + " visual_restore_failed=" + inspection.m_Reason + " state_preserved=1");
+            return false;
+        }
+
+        selectionIndex = inspection.m_SelectionIndex;
+        if (!PaintZ_PaintPackRegistry.HasFinish(paintCode))
+        {
+            PaintZ_PaintVisuals.RestoreIfKnown(target, selectionIndex);
+            PaintZ_PaintLog.Warning("persistence target=" + target.GetType() + " unresolved_finish=" + paintCode + " state_preserved=1 visual=original");
             return false;
         }
 
         float maxDimensionMeters;
         scalePercent = PaintZ_PatternScaling.ResolveScalePercent(target, paintCode, maxDimensionMeters);
-
-        selectionIndex = inspection.m_SelectionIndex;
         if (!PaintZ_PaintVisuals.Apply(target, paintCode, selectionIndex, scalePercent))
         {
-            PaintZ_PaintLog.Warning("persistence target=" + target.GetType() + " finish=" + paintCode + " visual application failed");
-            selectionIndex = -1;
+            PaintZ_PaintVisuals.RestoreIfKnown(target, selectionIndex);
+            PaintZ_PaintLog.Warning("persistence target=" + target.GetType() + " finish=" + paintCode + " visual_application_failed state_preserved=1");
             scalePercent = 100;
             return false;
         }
