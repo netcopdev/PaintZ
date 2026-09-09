@@ -1,6 +1,7 @@
 class PaintZ_PaintPackNamespace
 {
     string m_Prefix;
+    string m_ConfigClass;
     string m_DisplayName;
     string m_Source;
     int m_ApiVersion;
@@ -11,6 +12,7 @@ class PaintZ_FinishDefinition
 {
     string m_Id;
     string m_Prefix;
+    string m_OwnerClass;
     string m_DisplayName;
     string m_Type;
     string m_Source;
@@ -78,6 +80,7 @@ class PaintZ_PaintPackRegistry
     protected static const string PACK_ROOT = "CfgPaintZPacks";
     protected static const string FINISH_ROOT = "CfgPaintZFinishes";
     protected static const string LEGACY_PREFIX = "PZ";
+    protected static const string LEGACY_OWNER_CLASS = "PaintZ_LegacyBuiltIn";
     protected static const string LEGACY_SOURCE = "<PaintZ core legacy bridge>";
 
     protected static bool s_Initialized;
@@ -125,14 +128,19 @@ class PaintZ_PaintPackRegistry
     static bool IsPatternFinish(string finishId)
     {
         PaintZ_FinishDefinition finish = GetFinish(finishId);
-        return finish && finish.m_IsPattern;
+        if (!finish)
+            return false;
+
+        return finish.m_IsPattern;
     }
 
     static bool SupportsPatternScale(string finishId, int scalePercent)
     {
         PaintZ_FinishDefinition finish = GetFinish(finishId);
-        if (!finish || !finish.m_IsPattern)
-            return scalePercent == 100 && finish != null;
+        if (!finish)
+            return false;
+        if (!finish.m_IsPattern)
+            return scalePercent == 100;
 
         return finish.SupportsScale(scalePercent);
     }
@@ -237,11 +245,13 @@ class PaintZ_PaintPackRegistry
         for (int i = 0; i < count; i++)
         {
             string child;
-            if (!GetGame().ConfigGetChildName(PACK_ROOT, i, child))
+            GetGame().ConfigGetChildName(PACK_ROOT, i, child);
+            if (child == "")
                 continue;
 
             string path = PACK_ROOT + " " + child;
             PaintZ_PaintPackNamespace owner = new PaintZ_PaintPackNamespace();
+            owner.m_ConfigClass = child;
             owner.m_Source = path;
             owner.m_ApiVersion = GetGame().ConfigGetInt(path + " apiVersion");
             owner.m_Official = GetGame().ConfigGetInt(path + " official") == 1;
@@ -275,6 +285,7 @@ class PaintZ_PaintPackRegistry
     {
         PaintZ_PaintPackNamespace owner = new PaintZ_PaintPackNamespace();
         owner.m_Prefix = LEGACY_PREFIX;
+        owner.m_ConfigClass = LEGACY_OWNER_CLASS;
         owner.m_DisplayName = "PaintZ legacy built-in finishes";
         owner.m_Source = LEGACY_SOURCE;
         owner.m_ApiVersion = API_VERSION;
@@ -314,7 +325,7 @@ class PaintZ_PaintPackRegistry
             }
 
             s_Namespaces.Insert(candidate);
-            PaintZ_PaintLog.Info("paint_pack_registry namespace_registered prefix=" + candidate.m_Prefix + " source=" + candidate.m_Source);
+            PaintZ_PaintLog.Info("paint_pack_registry namespace_registered prefix=" + candidate.m_Prefix + " owner=" + candidate.m_ConfigClass + " source=" + candidate.m_Source);
         }
     }
 
@@ -324,7 +335,8 @@ class PaintZ_PaintPackRegistry
         for (int i = 0; i < count; i++)
         {
             string child;
-            if (!GetGame().ConfigGetChildName(FINISH_ROOT, i, child))
+            GetGame().ConfigGetChildName(FINISH_ROOT, i, child);
+            if (child == "")
                 continue;
 
             string path = FINISH_ROOT + " " + child;
@@ -339,6 +351,7 @@ class PaintZ_PaintPackRegistry
         PaintZ_FinishDefinition finish = new PaintZ_FinishDefinition();
         finish.m_Source = path;
         GetGame().ConfigGetText(path + " id", finish.m_Id);
+        GetGame().ConfigGetText(path + " owner", finish.m_OwnerClass);
         GetGame().ConfigGetText(path + " displayName", finish.m_DisplayName);
         GetGame().ConfigGetText(path + " type", finish.m_Type);
         finish.m_IsPattern = GetGame().ConfigGetInt(path + " isPattern") == 1;
@@ -361,6 +374,16 @@ class PaintZ_PaintPackRegistry
             return null;
         }
 
+        PaintZ_PaintPackNamespace owner = GetNamespace(prefix);
+        if (!owner || finish.m_OwnerClass == "" || finish.m_OwnerClass != owner.m_ConfigClass)
+        {
+            string expectedOwner = "<none>";
+            if (owner)
+                expectedOwner = owner.m_ConfigClass;
+            PaintZ_PaintLog.Warning("paint_pack_registry finish_rejected source=" + path + " reason=owner_mismatch prefix=" + prefix + " owner=" + finish.m_OwnerClass + " expected=" + expectedOwner);
+            return null;
+        }
+
         if (finish.m_DisplayName == "" || !TypeMatchesCode(finish.m_Type, typeCode))
         {
             PaintZ_PaintLog.Warning("paint_pack_registry finish_rejected source=" + path + " reason=invalid_metadata id=" + finish.m_Id);
@@ -372,7 +395,8 @@ class PaintZ_PaintPackRegistry
         for (int i = 0; i < surfaceCount; i++)
         {
             string surfaceChild;
-            if (!GetGame().ConfigGetChildName(surfacesPath, i, surfaceChild))
+            GetGame().ConfigGetChildName(surfacesPath, i, surfaceChild);
+            if (surfaceChild == "")
                 continue;
 
             string surfacePath = surfacesPath + " " + surfaceChild;
@@ -415,6 +439,7 @@ class PaintZ_PaintPackRegistry
             PaintZ_FinishDefinition finish = new PaintZ_FinishDefinition();
             finish.m_Id = paintCode;
             finish.m_Prefix = LEGACY_PREFIX;
+            finish.m_OwnerClass = LEGACY_OWNER_CLASS;
             finish.m_DisplayName = PaintZ_PaintCatalog.GetFinishName(paintCode);
             finish.m_Type = LegacyTypeName(paintCode);
             finish.m_Source = LEGACY_SOURCE;
@@ -475,7 +500,7 @@ class PaintZ_PaintPackRegistry
             }
 
             s_Finishes.Insert(candidate);
-            PaintZ_PaintLog.Info("paint_pack_registry finish_registered id=" + candidate.m_Id + " source=" + candidate.m_Source);
+            PaintZ_PaintLog.Info("paint_pack_registry finish_registered id=" + candidate.m_Id + " owner=" + candidate.m_OwnerClass + " source=" + candidate.m_Source);
         }
     }
 
