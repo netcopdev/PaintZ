@@ -21,13 +21,15 @@ Identify the branch that the requested work actually depends on before editing. 
 
 New feature, fix, refactor, experiment, tooling, documentation, or other repository work MUST be written on a separate appropriately named branch unless the user explicitly decides that the work should be performed directly on an existing branch.
 
-Creating a feature branch does **not** authorize merging it. Do not merge, squash, rebase, fast-forward, or otherwise integrate a work branch into `main` or another shared integration branch unless the user explicitly instructs you to merge/integrate it, or that integration was explicitly agreed before the work started.
+Nothing goes to `main` merely because implementation is complete. Work may be integrated into `main` only after it has been demonstrated to be safe and functional to the level appropriate for the change, and the user has explicitly approved that specific work for integration.
 
-When the implementation is complete, leave it on its work branch and report the branch name, relevant commits/PR, and test status. Treat merge as a separate user-controlled step.
+Creating a feature branch does **not** authorize merging it. Do not merge, squash, rebase, fast-forward, or otherwise integrate a work branch into `main` or another shared integration branch unless the user explicitly instructs you to merge/integrate it after review/testing, or that exact integration was explicitly agreed beforehand.
 
-Do not infer merge permission from phrases such as "implement this", "fix this", "do it", "finish it", "make it work", or from successful tests. Only an explicit merge/integration decision authorizes integration.
+When the implementation is complete, leave it on its work branch and report the branch name, relevant commits/PR, and test status. Treat verification and merge as separate steps. If live/runtime testing is still required, say so and keep the work branch unmerged.
 
-If branch intent is ambiguous, preserve separation: create/use a work branch and do not merge.
+Do not infer merge permission from phrases such as "implement this", "fix this", "do it", "finish it", "make it work", or from successful tests. Only an explicit merge/integration approval authorizes integration.
+
+If branch intent or approval status is ambiguous, preserve separation: create/use a work branch and do not merge.
 
 ## Shared infrastructure must live on the dependency base
 
