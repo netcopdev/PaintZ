@@ -22,11 +22,11 @@ class PaintZ_PaintTarget
             return null;
 
         EntityAI entity = EntityAI.Cast(actionTarget.GetObject());
-        if (PaintZ_PaintedState.GetPaintedSelection(entity) >= 0)
+        if (PaintZ_PaintedState.HasPaintState(entity))
             return entity;
 
         EntityAI parent = EntityAI.Cast(actionTarget.GetParent());
-        if (PaintZ_PaintedState.GetPaintedSelection(parent) >= 0)
+        if (PaintZ_PaintedState.HasPaintState(parent))
             return parent;
 
         return entity;
@@ -37,17 +37,14 @@ class PaintZ_PaintTarget
         if (!target)
             return false;
 
-        // Eligibility controls new applications only. PAINT_NONE is stripping
-        // and deliberately bypasses the runtime allow/exclude policy.
         if (paintCode != PaintZ_PaintConstants.PAINT_NONE)
         {
+            if (!PaintZ_PaintPackRegistry.HasFinish(paintCode))
+                return false;
             if (!PaintZ_ItemPolicy.IsRelevantTarget(target) || target.IsRuined() || !PaintZ_ItemPolicy.IsPaintApplicationAllowed(target))
                 return false;
         }
 
-        // PaintZ state belongs to the shared inventory-item base, not to today's
-        // configured domains. Weapons, magazines, attachments, clothing and
-        // future ItemBase-derived domains all use exactly the same state path.
         ItemBase item = ItemBase.Cast(target);
         if (!item)
             return false;
