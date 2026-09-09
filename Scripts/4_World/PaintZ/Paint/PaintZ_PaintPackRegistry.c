@@ -574,13 +574,13 @@ class PaintZ_PaintPackRegistry
         if (typeCode == "S")
             return typeName == "solid";
         if (typeCode == "C")
-            return typeName == "camo";
+            return typeName == "camo" || typeName == "camouflage";
         if (typeCode == "P")
             return typeName == "pattern";
         if (typeCode == "M")
             return typeName == "metallic";
         if (typeCode == "R")
-            return typeName == "rusted";
+            return typeName == "rusted" || typeName == "oxidized";
         if (typeCode == "W")
             return typeName == "weathered";
         if (typeCode == "F")
@@ -588,19 +588,19 @@ class PaintZ_PaintPackRegistry
         if (typeCode == "X")
             return typeName == "special" || typeName == "custom";
         if (typeCode == "T")
-            return typeName == "transparent";
+            return typeName == "transparent" || typeName == "tint";
 
         return false;
     }
 
     protected static bool IsUpperLetter(string ch)
     {
-        return ch >= "A" && ch <= "Z";
+        return ch.Length() == 1 && "ABCDEFGHIJKLMNOPQRSTUVWXYZ".IndexOf(ch) >= 0;
     }
 
     protected static bool IsDigit(string ch)
     {
-        return ch >= "0" && ch <= "9";
+        return ch.Length() == 1 && "0123456789".IndexOf(ch) >= 0;
     }
 
     protected static bool ContainsString(TStringArray values, string value)
