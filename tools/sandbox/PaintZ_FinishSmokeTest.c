@@ -100,7 +100,10 @@ class PaintZ_FinishSmokeTest
             Weapon_Base restoredWeapon = Weapon_Base.Cast(GetGame().CreateObjectEx("M4A1", "4582 0 10200", ECE_PLACE_ON_SURFACE));
             bool weaponLoaded = restoredWeapon && restoredWeapon.OnStoreLoad(weaponContext.GetReadContext(), int.MAX - 1);
             if (weaponLoaded)
+            {
                 restoredWeapon.AfterStoreLoad();
+                restoredWeapon.PaintZ_RestoreLoadedPaint();
+            }
             Check(weaponLoaded, "weapon native persistence load chain");
             Check(weaponLoaded && restoredWeapon.PaintZ_GetPaintCode() == paintCodes[0], "weapon logical finish restored");
             Check(weaponLoaded && PaintZ_PaintVisuals.HasPaint(restoredWeapon, restoredWeapon.PaintZ_GetPaintSelection()), "weapon appearance restored after load");
@@ -126,7 +129,10 @@ class PaintZ_FinishSmokeTest
                 restoredMagazine.ServerSetAmmoCount(7);
             bool magazineLoaded = restoredMagazine && restoredMagazine.OnStoreLoad(magazineContext.GetReadContext(), int.MAX - 1);
             if (magazineLoaded)
+            {
                 restoredMagazine.AfterStoreLoad();
+                restoredMagazine.PaintZ_RestoreLoadedPaint();
+            }
             Check(magazineLoaded, "magazine native persistence load chain");
             Check(magazineLoaded && restoredMagazine.PaintZ_GetPaintCode() == paintCodes[0], "magazine logical finish restored");
             Check(magazineLoaded && PaintZ_PaintVisuals.HasPaint(restoredMagazine, restoredMagazine.PaintZ_GetPaintSelection()), "magazine appearance restored after load");
@@ -264,11 +270,16 @@ class PaintZ_FinishSmokeTest
         PaintZ_PaintInspectionResult excludedInspection = PaintZ_PaintInspector.Inspect(weapon);
         if (excludedInspection.m_Paintable)
         {
-            ItemBase excludedCan = ItemBase.Cast(GetGame().CreateObjectEx("PaintZ_SprayCan_ODG", "4580 0 10200", ECE_PLACE_ON_SURFACE));
+            array<string> excludedCanTypes;
+            PaintZ_PaintCatalog.GetCanTypes(excludedCanTypes);
+            ItemBase excludedCan;
+            if (excludedCanTypes.Count() > 0)
+                excludedCan = ItemBase.Cast(GetGame().CreateObjectEx(excludedCanTypes[0], "4580 0 10200", ECE_PLACE_ON_SURFACE));
             ActionTarget excludedTarget = new ActionTarget(weapon, null, -1, weapon.GetPosition(), 0);
             ActionPaintZPaint excludedAction = new ActionPaintZPaint;
             Check(excludedCan && excludedAction && !excludedAction.ActionCondition(null, excludedTarget, excludedCan), "excluded target does not offer Paint action");
-            GetGame().ObjectDelete(excludedCan);
+            if (excludedCan)
+                GetGame().ObjectDelete(excludedCan);
         }
 
         PaintZ_ItemPolicyConfig magazineExcluded = MakePolicy("allow");
@@ -429,8 +440,15 @@ class PaintZ_FinishSmokeTest
 
         PaintZ_ItemPolicyConfig saved = PaintZ_ItemPolicy.GetActiveConfigForTests();
         PaintZ_ItemPolicy.InstallConfigForTests(MakePolicy("allow"));
+        array<string> canTypes;
+        PaintZ_PaintCatalog.GetCanTypes(canTypes);
+        string canType;
+        if (canTypes.Count() > 0)
+            canType = canTypes[0];
         EntityAI item = EntityAI.Cast(GetGame().CreateObjectEx("M4A1", player.GetPosition(), ECE_PLACE_ON_SURFACE));
-        ItemBase can = ItemBase.Cast(GetGame().CreateObjectEx("PaintZ_SprayCan_S_ODG", player.GetPosition(), ECE_PLACE_ON_SURFACE));
+        ItemBase can;
+        if (canType != "")
+            can = ItemBase.Cast(GetGame().CreateObjectEx(canType, player.GetPosition(), ECE_PLACE_ON_SURFACE));
         Check(item && can, "policy race fixtures spawned");
         if (!item || !can)
             return;
