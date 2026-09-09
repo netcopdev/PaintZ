@@ -11,6 +11,8 @@ class PaintZ_PaintedState
         if (!item)
             return false;
 
+        if (item.PaintZ_HasState())
+            return true;
         if (item.PaintZ_GetPaintCode() != PaintZ_PaintConstants.PAINT_NONE)
             return true;
         if (item.PaintZ_GetPaintSelection() >= 0)
