@@ -58,14 +58,26 @@ Example:
   "ranges": [
     { "max_dimension_m": 0.20, "scale": 2.0 },
     { "max_dimension_m": 0.40, "scale": 1.5 },
-    { "max_dimension_m": 0.80, "scale": 1.0 }
+    { "max_dimension_m": 0.80, "scale": 1.0 },
+    { "max_dimension_m": 1.50, "scale": 0.5 }
   ]
 }
 
 Ranges are evaluated from top to bottom and must be ordered by strictly
 increasing max_dimension_m. The first range whose maximum is greater than or
-equal to the measured item dimension wins. Items larger than every configured
-range use default_scale.
+equal to the measured item dimension wins.
+
+The range mapping is clamped at the upper end. An item larger than every
+configured max_dimension_m keeps using the final range's scale instead of
+jumping back to default_scale. In the example above, an item measuring 3.0 m
+uses scale 0.5 because the final range is 1.50 m -> 0.5.
+
+The first range already covers every measured size up to its maximum, so there
+is no lower-end gap.
+
+default_scale is the fallback used when ranges is empty, when PaintZ cannot
+measure the target, or when the selected range scale is unavailable for the
+particular registered finish. It is not an overflow range.
 
 Set ranges to [] to make every patterned item request default_scale.
 
