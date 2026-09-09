@@ -114,6 +114,12 @@ class PaintZ_PaintStateRuntime
         if (paintCode == PaintZ_PaintConstants.PAINT_NONE)
             return 0;
 
+        // Only registered finishes may be reconstructed from a network hash.
+        // Historical/unresolved IDs remain server-side persistent state and
+        // synchronize hash=0 so they can never alias an unrelated active finish.
+        if (!PaintZ_PaintPackRegistry.HasFinish(paintCode))
+            return 0;
+
         return paintCode.Hash();
     }
 
