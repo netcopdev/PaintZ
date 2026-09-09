@@ -50,6 +50,7 @@ class PaintZ_PaintPackApiFixtureSmoke
 
         int hash = "TST-S-RED".Hash();
         Check(PaintZ_PaintPackRegistry.GetFinishIdByNetworkHash(hash) == "TST-S-RED", "network hash resolves registered finish");
+        Check(PaintZ_PaintStateRuntime.GetNetworkHash("ZZZ-C-OLD") == 0, "unresolved finish is never exposed as a network hash");
 
         Print("[PaintZ][PackAPI Smoke] REGISTRY COMPLETE passed=" + s_Passed + " failed=" + s_Failed);
     }
@@ -95,9 +96,11 @@ class PaintZ_PaintPackApiFixtureSmoke
         paintAction.OnFinishProgressServer(paintData);
 
         ItemBase targetItem = ItemBase.Cast(target);
+        float expectedPaintQuantity = paintBefore - expectedPaintUsage;
+        float paintQuantityDelta = Math.AbsFloat(paintCan.GetQuantity() - expectedPaintQuantity);
         Check(targetItem && targetItem.PaintZ_GetPaintCode() == "TST-S-RED", "generic action stores external finish ID");
         Check(PaintZ_PaintVisuals.HasPaint(target, inspection.m_SelectionIndex), "generic action applies registered external surface");
-        Check(Math.AbsFloat(paintCan.GetQuantity() - (paintBefore - expectedPaintUsage)) < 0.01, "generic action consumes configured paint amount");
+        Check(paintQuantityDelta < 0.01, "generic action consumes configured paint amount");
 
         ActionPaintZStripPaint stripAction = new ActionPaintZStripPaint();
         Check(stripAction.ActionCondition(player, actionTarget, stripper), "strip action sees externally painted item");
@@ -109,16 +112,19 @@ class PaintZ_PaintPackApiFixtureSmoke
         stripData.m_MainItem = stripper;
         stripAction.OnFinishProgressServer(stripData);
 
+        float expectedStripQuantity = stripBefore - expectedStripUsage;
+        float stripQuantityDelta = Math.AbsFloat(stripper.GetQuantity() - expectedStripQuantity);
         Check(targetItem.PaintZ_GetPaintCode() == PaintZ_PaintConstants.PAINT_NONE, "strip clears logical external finish ID");
         Check(targetItem.PaintZ_GetPaintSelection() < 0, "strip clears synchronized painted selection");
         Check(!PaintZ_PaintVisuals.HasPaint(target, inspection.m_SelectionIndex), "strip restores original visual");
-        Check(Math.AbsFloat(stripper.GetQuantity() - (stripBefore - expectedStripUsage)) < 0.01, "strip consumes configured stripper amount");
+        Check(stripQuantityDelta < 0.01, "strip consumes configured stripper amount");
 
         string unresolvedFinish = "ZZZ-C-OLD";
         targetItem.PaintZ_LoadPaintState(unresolvedFinish);
         targetItem.PaintZ_RestoreLoadedPaint();
         int unresolvedSelection = targetItem.PaintZ_GetPaintSelection();
         Check(targetItem.PaintZ_GetPaintCode() == unresolvedFinish, "unresolved historical finish ID remains logical state");
+        Check(PaintZ_PaintStateRuntime.GetNetworkHash(unresolvedFinish) == 0, "unresolved historical finish synchronizes no active finish hash");
         Check(unresolvedSelection >= 0, "unresolved historical state retains a strip target selection");
         Check(!PaintZ_PaintVisuals.HasPaint(target, unresolvedSelection), "unresolved historical finish displays original visual");
         Check(PaintZ_PaintedState.HasPaintState(target), "unresolved historical state is still recognized as PaintZ state");
