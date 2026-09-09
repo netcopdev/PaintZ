@@ -32,7 +32,8 @@ class PaintZ_NewPaintEvaluation
             return evaluation;
         }
 
-        if (spray.HasQuantity() && spray.GetQuantity() < PaintZ_PaintConstants.SPRAY_COST)
+        float requiredPaint = PaintZ_ActionTuning.ResolvePaintUsage(evaluation.m_Target, spray);
+        if (spray.HasQuantity() && spray.GetQuantity() < requiredPaint)
         {
             evaluation.m_Result = PaintZ_NewPaintResult.PZ_NEW_PAINT_CAN_EMPTY;
             return evaluation;
@@ -73,7 +74,7 @@ class PaintZ_NewPaintEvaluation
                 player.MessageStatus("Ruined Spray Can");
                 break;
             case PaintZ_NewPaintResult.PZ_NEW_PAINT_CAN_EMPTY:
-                player.MessageStatus("Empty Spray Can");
+                player.MessageStatus("Not enough paint remaining for this item.");
                 break;
             case PaintZ_NewPaintResult.PZ_NEW_PAINT_TARGET_RUINED:
                 player.MessageStatus("Cannot Paint: Item is ruined");
@@ -96,7 +97,7 @@ class PaintZ_NewPaintEvaluation
             case PaintZ_NewPaintResult.PZ_NEW_PAINT_CAN_RUINED:
                 return "Ruined Spray Can";
             case PaintZ_NewPaintResult.PZ_NEW_PAINT_CAN_EMPTY:
-                return "Empty Spray Can";
+                return "Not Enough Paint";
             case PaintZ_NewPaintResult.PZ_NEW_PAINT_TARGET_RUINED:
                 return "Cannot Paint - Ruined";
             case PaintZ_NewPaintResult.PZ_NEW_PAINT_EXCLUDED:

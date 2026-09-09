@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "reload_seconds": 10,
+  "min_dimension_m": 0.2,
+  "max_dimension_m": 0.8,
+  "min_time_seconds": 5.0,
+  "max_time_seconds": 20.0,
+  "paint_applications_per_full_can_at_max_size": 3.0,
+  "strip_applications_per_full_can_at_max_size": 3.0
+}
