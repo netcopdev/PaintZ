@@ -57,19 +57,44 @@ A config reload affects the next repaint/application only. It does not sweep thr
 
 Physical size is only a proxy for UV density. Two similarly sized models may still need different pattern sizes because their UV layouts differ. See `config/paintz_pattern_scaling_README.txt`.
 
+## Size-dependent action tuning
+
+Painting time, paint consumption, stripping time and paint-stripper consumption are derived from the same physical-size measurement used by pattern scaling.
+
+The server configuration is:
+
+`$profile:PaintZ/paintz_action_tuning.json`
+
+This feature does not use discrete size ranges. The target's longest collision-box dimension is clamped between configurable minimum and maximum endpoints, then action duration is linearly interpolated between the configured times. Paint and stripper usage are proportional to the same clamped physical size.
+
+Shipped defaults are:
+
+- `0.2 m` or smaller: `5 s` action time;
+- `0.8 m` or larger: `20 s` action time;
+- linear timing between those endpoints;
+- a full paint can covers approximately three `0.8 m` objects;
+- a `0.2 m` object therefore uses about `1/12` of a full paint can;
+- stripper consumption follows the same size model and has its own applications-per-full-can setting.
+
+The server reloads this config according to `reload_seconds` and synchronizes every valid update to clients so continuous-action progress uses the same timing on both sides. Existing administrator JSON is never overwritten. The adjacent runtime README is refreshed from the mod on every server start and documents the exact formulas and fields.
+
+See `config/paintz_action_tuning_README.txt`.
+
 ## Runtime flow
 
-1. Player holds a PaintZ spray can.
+1. Player holds a PaintZ spray can or paint-stripper can.
 2. PaintZ resolves the targeted entity.
 3. JSON domains decide whether the target is relevant for new-paint interaction.
 4. Ordered policy rules decide whether new application is allowed.
 5. `PaintZ_PaintInspector` inspects the actual runtime hidden selections.
 6. A conservative global heuristic chooses a safe body-like selection or rejects the item.
-7. The server rechecks all conditions when the action completes.
-8. For patterned finishes, the server derives a scale from the current scaling config and target collision-box size.
-9. PaintZ updates the existing object's shared `ItemBase` PaintZ state and calls `SetObjectTexture()`.
-10. Shared synchronization publishes the finish, selected surface and transient scale to clients.
-11. CF ModStorage preserves only the logical finish assignment through persistence.
+7. The action duration is derived linearly from the target's physical size and the synchronized action-tuning config.
+8. The server rechecks all conditions and required size-dependent consumable quantity when the action completes.
+9. For patterned finishes, the server derives a scale from the current scaling config and target collision-box size.
+10. PaintZ updates the existing object's shared `ItemBase` PaintZ state and calls `SetObjectTexture()`.
+11. The required size-dependent paint/stripper quantity is consumed from the applicator.
+12. Shared synchronization publishes the finish, selected surface and transient scale to clients.
+13. CF ModStorage preserves only the logical finish assignment through persistence.
 
 No item replacement or classname change occurs.
 
@@ -79,7 +104,10 @@ No item replacement or classname change occurs.
 - `config/paintz_items.default.json` — shipped default domains/rules.
 - `config/paintz_pattern_scaling.default.json` — shipped default pattern-size mapping.
 - `config/paintz_pattern_scaling_README.txt` — runtime scaling configuration contract.
+- `config/paintz_action_tuning.default.json` — shipped size/time/consumption defaults.
+- `config/paintz_action_tuning_README.txt` — runtime action-tuning formulas and configuration contract.
 - `Scripts/4_World/PaintZ/Policy/` — generic type/class/declared-slot domain and rule policy.
+- `Scripts/4_World/PaintZ/Actions/PaintZ_ActionTuning.c` — size-dependent action timing/usage, runtime reload and client synchronization.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_ItemPaintState.c` — shared inventory-item paint state, synchronization and CF persistence hooks.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_PaintPersistence.c` — CF ModStorage codec and post-load restoration helpers.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_PatternScaling.c` — server-side size measurement, scale mapping and live config reload.
