@@ -7,6 +7,8 @@ import shutil
 import sys
 from pathlib import Path
 
+from PIL import Image
+
 HERE = Path(__file__).resolve()
 ROOT = HERE.parents[1]
 sys.path.insert(0, str(HERE.parent))
@@ -22,6 +24,28 @@ from paintzgen.render import (
     save_preview_catalog,
 )
 from paintzgen.scaled_surface import render_surface_scaled
+
+
+def save_png(
+    image: Image.Image,
+    path: Path,
+):
+    """Save a generated PNG while explicitly preserving its ICC profile."""
+    kwargs = {}
+    icc_profile = image.info.get("icc_profile")
+    if icc_profile:
+        kwargs["icc_profile"] = icc_profile
+    image.save(path, **kwargs)
+
+
+def average_rgb(
+    image: Image.Image,
+) -> tuple[int, int, int]:
+    return (
+        image.convert("RGB")
+        .resize((1, 1), Image.Resampling.BOX)
+        .getpixel((0, 0))
+    )
 
 
 def load_appearance_profiles(repo_root: Path) -> dict:
@@ -198,7 +222,7 @@ def main():
         return
 
     base = create_base(tuple(data.get("generator", {}).get("label_size", [1024, 1024])))
-    base.save(repo_root / "assets/template/military_issue_base.png")
+    save_png(base, repo_root / "assets/template/military_issue_base.png")
     preview_items = []
     surface_size = tuple(
         data.get("generator", {}).get("surface_size", [1024, 1024])
@@ -206,7 +230,7 @@ def main():
 
     for p, item in zip(data["paints"], catalog):
         label = render_label(base, p, item["code"], repo_root, appearance_cfg)
-        label.save(out / "labels" / f"{item['texture_stem']}_co.png")
+        save_png(label, out / "labels" / f"{item['texture_stem']}_co.png")
 
         for variant in item["surface_variants"]:
             surface = render_surface_scaled(
@@ -217,10 +241,20 @@ def main():
                 appearance_cfg,
                 pattern_scale=variant["scale"],
             )
-            surface.save(
+
+            if p.get("color") and variant["scale_percent"] == 100:
+                avg = average_rgb(surface)
+                print(
+                    f"{item['code']}: configured={str(p['color']).upper()} "
+                    f"avg_rgb=({avg[0]},{avg[1]},{avg[2]}) "
+                    f"icc={'yes' if surface.info.get('icc_profile') else 'no'}"
+                )
+
+            save_png(
+                surface,
                 out
                 / "surfaces"
-                / f"{variant['texture_stem']}_co.png"
+                / f"{variant['texture_stem']}_co.png",
             )
 
         preview_path = out / "previews" / f"{item['texture_stem']}_preview.png"

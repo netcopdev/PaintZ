@@ -8,6 +8,8 @@ import random
 
 from PIL import Image
 
+from .color_management import normalize_to_srgb, tag_srgb
+
 
 # ===========================================================================
 # PaintZ texture output
@@ -44,8 +46,9 @@ def _load_overlay(
     with Image.open(
         path
     ) as image:
-        return image.convert(
-            "RGBA"
+        return normalize_to_srgb(
+            image,
+            "RGBA",
         )
 
 
@@ -221,15 +224,17 @@ def _alpha_scaled(
 ) -> Image.Image:
 
     if factor <= 0:
-        return Image.new(
-            "RGBA",
-            image.size,
-            (
-                0,
-                0,
-                0,
-                0,
-            ),
+        return tag_srgb(
+            Image.new(
+                "RGBA",
+                image.size,
+                (
+                    0,
+                    0,
+                    0,
+                    0,
+                ),
+            )
         )
 
     output = image.copy()
@@ -253,7 +258,7 @@ def _alpha_scaled(
         a
     )
 
-    return output
+    return tag_srgb(output)
 
 
 def pattern_fill(
@@ -265,8 +270,9 @@ def pattern_fill(
         path
     ) as source:
 
-        source = source.convert(
-            "RGB"
+        source = normalize_to_srgb(
+            source,
+            "RGBA",
         )
 
         target_width, target_height = size
@@ -312,7 +318,7 @@ def pattern_fill(
             - target_height
         ) // 2
 
-        return source.crop(
+        cropped = source.crop(
             (
                 left,
                 top,
@@ -324,6 +330,8 @@ def pattern_fill(
         ).convert(
             "RGBA"
         )
+
+        return tag_srgb(cropped)
 
 
 def _apply_finish_stack(
@@ -544,15 +552,17 @@ def create_base(
             DEFAULT_TEXTURE_SIZE,
         )
 
-    return Image.new(
-        "RGBA",
-        size,
-        (
-            0,
-            0,
-            0,
-            0,
-        ),
+    return tag_srgb(
+        Image.new(
+            "RGBA",
+            size,
+            (
+                0,
+                0,
+                0,
+                0,
+            ),
+        )
     )
 
 
@@ -596,13 +606,15 @@ def render_surface(
             )
         )
 
-        surface = Image.new(
-            "RGBA",
-            size,
-            rgb
-            + (
-                255,
-            ),
+        surface = tag_srgb(
+            Image.new(
+                "RGBA",
+                size,
+                rgb
+                + (
+                    255,
+                ),
+            )
         )
 
     else:
@@ -629,6 +641,8 @@ def render_surface(
         repo_root,
         profile,
     )
+
+    tag_srgb(surface)
 
     surface.info[
         "appearance_profile"

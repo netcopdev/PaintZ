@@ -4,6 +4,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from .color_management import tag_srgb
 from .finish import (
     DEFAULT_APPEARANCE,
     _apply_finish_stack,
@@ -42,16 +43,18 @@ def scale_pattern_fill(
     if pattern_scale > 1.0:
         left = (scaled_width - target_width) // 2
         top = (scaled_height - target_height) // 2
-        return scaled.crop(
-            (
-                left,
-                top,
-                left + target_width,
-                top + target_height,
-            )
-        ).convert("RGBA")
+        return tag_srgb(
+            scaled.crop(
+                (
+                    left,
+                    top,
+                    left + target_width,
+                    top + target_height,
+                )
+            ).convert("RGBA")
+        )
 
-    output = Image.new("RGBA", size)
+    output = tag_srgb(Image.new("RGBA", size))
     for y in range(0, target_height, scaled_height):
         for x in range(0, target_width, scaled_width):
             output.alpha_composite(scaled, (x, y))
@@ -100,5 +103,6 @@ def render_surface_scaled(
         repo_root,
         profile,
     )
+    tag_srgb(surface)
     surface.info["appearance_profile"] = profile_name
     return surface

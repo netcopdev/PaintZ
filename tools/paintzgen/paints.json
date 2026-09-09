@@ -27,31 +27,10 @@
   },
   "paints": [
     {
-      "id": "ODG",
-      "name": "Olive Drab",
-      "type": "solid",
-      "color": "#54513B",
-      "appearance_profile": "used"
-    },
-    {
       "id": "RGR",
       "name": "Ranger Green",
       "type": "solid",
-      "color": "#5C624E",
-      "appearance_profile": "used"
-    },
-    {
-      "id": "NTG",
-      "name": "NATO Green",
-      "type": "solid",
-      "color": "#4E573B",
-      "appearance_profile": "used"
-    },
-    {
-      "id": "CBR",
-      "name": "Coyote Brown",
-      "type": "solid",
-      "color": "#7B6348",
+      "color": "#414735",
       "appearance_profile": "used"
     },
     {
@@ -59,20 +38,6 @@
       "name": "Flat Dark Earth",
       "type": "solid",
       "color": "#86785B",
-      "appearance_profile": "used"
-    },
-    {
-      "id": "DTN",
-      "name": "Desert Tan",
-      "type": "solid",
-      "color": "#9F8B69",
-      "appearance_profile": "used"
-    },
-    {
-      "id": "KHK",
-      "name": "Khaki",
-      "type": "solid",
-      "color": "#988B65",
       "appearance_profile": "used"
     },
     {
@@ -103,7 +68,6 @@
       "color": "#DADCD6",
       "appearance_profile": "weathered"
     },
-
     {
       "id": "ERDL",
       "name": "ERDL",
