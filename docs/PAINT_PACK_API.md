@@ -2,7 +2,7 @@
 
 This document is the authoritative interoperability contract between the PaintZ runtime, paint-pack mods, and PaintZ PackKit.
 
-The contract defines identity, namespace ownership, collision handling, dependency direction, persistence behavior, and responsibility boundaries. Exact config-class/property names may evolve during the first implementation, but they must preserve these semantics. Any later incompatible semantic change requires an explicit API-version change or documented migration.
+The contract defines identity, namespace ownership, collision handling, finish representation, dependency direction, persistence behavior, and responsibility boundaries. Any later incompatible semantic change requires an explicit API-version change or documented migration.
 
 ## 1. Responsibility boundary
 
@@ -13,7 +13,7 @@ PaintZ owns runtime mechanics and the runtime registry:
 - painting and stripping actions;
 - eligibility/policy and model-safety checks;
 - synchronization and persistence;
-- resolution of a logical finish ID to its registered assets;
+- resolution of a logical finish ID to its registered surface representation;
 - namespace and finish-registration validation;
 - collision handling;
 - the canonical spray-can base class/model/UV contract;
@@ -27,7 +27,7 @@ A normal paint pack owns content, not PaintZ gameplay mechanics. It supplies:
 
 - one pack namespace declaration;
 - finish declarations;
-- target surface textures and declared pattern-scale variants;
+- target-surface representations: texture assets for asset-backed finishes and procedural color descriptors for Basic finishes;
 - generated can textures;
 - thin spawnable can classes inheriting the PaintZ base can;
 - optional restrained branding/pack metadata.
@@ -36,13 +36,7 @@ A normal paint pack depends on PaintZ at runtime. It should not need per-finish 
 
 ### PaintZ PackKit
 
-PackKit is an offline authoring/build tool and reference implementation of this contract. It:
-
-- validates author input;
-- generates conforming paint-pack source/assets;
-- enforces namespace/ID rules that can be checked locally;
-- generates standardized can artwork and thin can classes;
-- generates finish-registration/config data.
+PackKit is an offline authoring/build tool and reference implementation of this contract. It validates author input, generates conforming paint-pack source/assets/config, enforces namespace/ID rules that can be checked locally, generates standardized can artwork and thin can classes, and generates finish registration data.
 
 PackKit is never a runtime dependency and is not a namespace authority. A pack may be authored manually if it conforms to this contract.
 
@@ -72,26 +66,11 @@ Once a pack is released, changing its prefix is a breaking identity change becau
 
 ## 3. Official PaintZ reservation
 
-All valid 2-3 character prefixes beginning with `PZ` are reserved for official PaintZ content.
-
-This includes:
-
-```text
-PZ
-PZA ... PZZ
-PZ0 ... PZ9
-```
+All valid 2-3 character prefixes beginning with `PZ` are reserved for official PaintZ content, including `PZ`, `PZA` through `PZZ`, and `PZ0` through `PZ9`.
 
 Third-party namespace declarations beginning with `PZ` are invalid and must be rejected.
 
-The PaintZ Standard Pack initially uses the `PZ` namespace, preserving existing IDs such as:
-
-```text
-PZ-C-FTN
-PZ-S-FDE
-```
-
-Additional `PZ?` namespaces remain reserved for future official use and are not automatically assigned.
+The PaintZ Standard Pack initially uses the `PZ` namespace. Additional `PZ?` namespaces remain reserved for future official use and are not automatically assigned.
 
 This reservation is an interoperability rule, not cryptographic publisher authentication. A deliberately modified runtime or hostile executable mod is outside the trust model.
 
@@ -106,27 +85,31 @@ The canonical runtime and persistence identity of a finish is:
 Examples:
 
 ```text
-PZ-C-FTN
+PZ-B-BLK
 PZ-S-FDE
+PZ-C-FTN
+NCP-B-ODG
 NCP-C-FTN
-NCP-S-FDE
 ```
 
 There is no separate long canonical finish ID in API v1.
 
 ### Type code
 
-The existing PaintZ one-character type namespace remains part of the ID:
+The PaintZ one-character type namespace is part of the ID:
 
-- `S` - solid
-- `C` - camouflage
-- `P` - generic pattern
-- `M` - metallic
-- `R` - rusted / oxidized
-- `W` - weathered
-- `F` - fluorescent
-- `X` - special / custom
-- `T` - transparent / tint
+- `B` - Basic: plain single RGB color only, with no added wear/noise/scratches/rust or other surface treatment; rendered from a procedural color descriptor rather than a target-surface PAA;
+- `S` - Solid: fundamentally one color, but asset-backed so it may contain surface character such as noise, scratches, grime, wear, mottling, rust hints, or similar treatment;
+- `C` - camouflage;
+- `P` - generic non-camouflage pattern;
+- `M` - metallic;
+- `R` - rusted / oxidized;
+- `W` - weathered;
+- `F` - fluorescent;
+- `X` - special / custom;
+- `T` - transparent / tint.
+
+`Basic` and `Solid` are deliberately distinct. Both may represent one nominal color. `Basic` means color only; `Solid` means a one-color finish with additional surface treatment/detail.
 
 ### Finish suffix
 
@@ -138,26 +121,9 @@ Changing a released finish ID is a breaking persistence change. Display name, br
 
 A loaded paint-pack family has exactly one namespace-owner declaration for its prefix.
 
-A normal single-PBO pack owns and declares its namespace once.
+A normal single-PBO pack owns and declares its namespace once. A multi-PBO pack family also declares the namespace only once, normally in a core/owner PBO. Additional content PBOs register finishes under that namespace and use normal DayZ add-on dependencies on the owner/core PBO rather than re-declaring ownership.
 
-A multi-PBO pack family also declares the namespace only once, normally in a core/owner PBO. Additional content PBOs register finishes under that namespace and should use normal DayZ add-on dependencies on the owner/core PBO rather than re-declaring ownership.
-
-Example conceptual layout:
-
-```text
-NCP_Core.pbo
-  declares namespace NCP
-
-NCP_Solids.pbo
-  depends on NCP_Core
-  registers NCP-S-...
-
-NCP_Camos.pbo
-  depends on NCP_Core
-  registers NCP-C-...
-```
-
-The exact config representation is an implementation detail, but this one-owner semantic is mandatory.
+The exact config representation is defined in `PAINT_PACK_CONFIG_V1.md`, but this one-owner semantic is mandatory.
 
 ## 6. Runtime discovery is two-phase
 
@@ -171,26 +137,9 @@ For each prefix:
 
 - zero valid owners -> the namespace is unresolved and no new finish from it may be registered;
 - exactly one valid owner -> the namespace may proceed to finish registration;
-- more than one owner declaration -> the namespace is conflicted.
+- more than one owner declaration -> the namespace is conflicted and disabled as a whole.
 
-A conflicted namespace is disabled as a whole. No claimant wins because of mod load order.
-
-Example:
-
-```text
-NCP -> Pack A
-NCP -> Pack B
-ABC -> Pack C
-```
-
-Result:
-
-```text
-NCP = conflicted; all NCP-* finishes disabled
-ABC = valid
-```
-
-PaintZ must log enough information to identify all conflicting declarations.
+PaintZ must log enough information to identify conflicting declarations.
 
 ### Phase 2 - validate finish declarations
 
@@ -201,12 +150,13 @@ For each finish, PaintZ validates at least:
 - finish-ID syntax;
 - prefix matches the registered namespace;
 - type code is supported by the API version;
-- required finish metadata/assets are valid enough for registration;
+- `type` metadata agrees with the ID type code;
+- required finish representation is valid enough for registration;
 - the complete finish ID is unique in the loaded environment.
 
-A duplicate complete finish ID is ambiguous and must not use first/last-loaded-wins behavior. The duplicated finish ID is disabled. Other unique finishes in an otherwise valid namespace may remain available.
+A duplicate complete finish ID is ambiguous and is disabled. Other unique finishes in an otherwise valid namespace may remain available. No registration may silently overwrite an already discovered finish definition.
 
-No registration may silently overwrite an already discovered finish definition.
+For a `B`/`basic` finish, the required 100% surface must be a procedural color descriptor and the finish must not be pattern-scaled. Asset-backed finish types continue to reference explicitly declared texture assets.
 
 ## 7. Trust and authorship model
 
@@ -218,17 +168,38 @@ The API protects deterministic behavior and persistence against ordinary collisi
 
 PackKit can validate local format and local uniqueness, but it cannot guarantee that a chosen third-party prefix is unused by every other Workshop/mod package.
 
-## 8. Finish declarations own their assets
+## 8. Finish declarations own their representation
 
-A finish declaration must explicitly expose the assets PaintZ may use for that finish.
+A finish declaration must explicitly expose the surface representation PaintZ may use for that finish. PaintZ must not invent undeclared paths or colors from naming conventions.
 
-PaintZ must not invent undeclared texture paths from naming conventions and assume they exist.
+### Basic finishes
 
-For a solid finish this normally includes its base target-surface texture.
+A `B` finish represents one plain RGB color and uses a DayZ procedural texture descriptor at runtime. It does not require a target-surface `.paa`.
 
-For a patterned/camouflage finish this includes every generated scale variant that PaintZ may select. The runtime registry must know which variants actually exist.
+Conceptually, PackKit converts author input such as:
 
-Can artwork is presentation for the spawnable can class and remains separate from target-surface textures.
+```json
+{
+  "id": "BLK",
+  "name": "Basic Black",
+  "type": "basic",
+  "color": "#262827"
+}
+```
+
+into an API-v1 surface value equivalent to:
+
+```text
+#(argb,8,8,3)color(0.149020,0.156863,0.152941,1.0,CO)
+```
+
+The complete finish ID, not the generated procedural string, remains the persistent identity.
+
+### Asset-backed finishes
+
+`S`, `C`, `P`, `M`, `R`, and other asset-backed types expose the actual target-surface texture assets the runtime may select. Patterned/camouflage finishes expose every generated scale variant that may be selected. The registry knows which variants actually exist.
+
+Can artwork is presentation for the spawnable can class and remains separate from target-surface representation. A Basic finish still normally has a generated can texture even though its painted target surface is procedural.
 
 ## 9. Spray-can classes
 
@@ -236,7 +207,7 @@ PaintZ provides the non-spawnable canonical spray-can base class and common beha
 
 Each paint pack provides one thin spawnable can class per finish. The class identifies the finish it represents and supplies its can presentation/texture while inheriting behavior from PaintZ.
 
-PaintZ runtime logic must resolve behavior generically from the finish ID. Normal paint packs should not require generated per-finish action subclasses.
+PaintZ runtime logic resolves behavior generically from the finish ID. Normal paint packs should not require generated per-finish action subclasses.
 
 Painted target items are never represented by generated painted weapon/magazine/item subclasses.
 
@@ -245,10 +216,13 @@ Painted target items are never represented by generated painted weapon/magazine/
 PaintZ persists the complete logical finish ID, for example:
 
 ```text
+NCP-B-ODG
 NCP-C-FTN
 ```
 
-If that finish is not registered on a later server start because the pack is removed, conflicted, invalid, or temporarily unavailable:
+PaintZ does not persist a Basic finish's RGB/procedural texture string separately. `B` is still a predefined registered finish exactly like every other finish category.
+
+If a finish is not registered on a later server start because the pack is removed, conflicted, invalid, or temporarily unavailable:
 
 - the persisted finish ID remains historical logical state;
 - the item must not be implicitly stripped;
@@ -279,17 +253,17 @@ The PaintZ Standard Pack is still a paint pack from the runtime architecture's p
 
 ## 12. PackKit obligations
 
-PackKit must follow this contract when generating API-v1 packs.
-
-At minimum it must:
+PackKit must follow this contract when generating API-v1 packs. At minimum it must:
 
 - require/derive one pack prefix;
 - normalize/validate prefix syntax;
 - reject `PZ`/`PZ?` namespaces for ordinary third-party generation;
-- provide an explicit official/internal path for generating the Standard Pack rather than accidentally allowing reserved prefixes;
+- provide an explicit official/internal path for generating Standard Pack content;
 - derive complete finish IDs from prefix + type code + suffix;
 - validate local finish-ID uniqueness;
-- not invent UUID/security ownership as a requirement;
+- support `B`/`basic` as plain RGB-only finishes and emit a procedural runtime surface without generating a target-surface PAA;
+- keep `S` as the asset-backed one-color category;
+- reject appearance-profile/pattern treatment on a Basic finish;
 - generate one namespace-owner declaration per pack family;
 - generate thin finish can classes and finish-registration data;
 - keep runtime mechanics in PaintZ rather than generated pack scripts where the API supports generic behavior.
@@ -301,11 +275,13 @@ PackKit must document that it cannot guarantee global uniqueness of a third-part
 The official Standard Pack:
 
 - uses `PZ` as its initial namespace;
-- preserves existing official finish IDs where intentionally retained, such as `PZ-C-FTN`;
 - may use another reserved `PZ?` namespace only through an explicit future project decision;
 - depends on PaintZ runtime;
 - contains official finish content/assets/can subclasses/registrations, not duplicated runtime mechanics;
-- serves as the first-party reference/conformance pack for the current Paint Pack API.
+- serves as the first-party reference/conformance pack for the current Paint Pack API;
+- may provide both Basic and Solid finishes for the same nominal color because their complete IDs differ by type code and their visual semantics differ.
+
+Existing released `PZ-S-*` finishes remain Solid identities. Adding a corresponding `PZ-B-*` finish is additive and must not silently repurpose the existing `S` identity.
 
 ## 14. Breaking changes and versioning
 
