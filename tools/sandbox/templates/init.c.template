@@ -54,22 +54,22 @@ class CustomMission: MissionServer
         if (!backpack)
             Print("[PaintZ][Sandbox] FAILED to equip test backpack");
 
-        // A full twelve-can kit exceeds the backpack's usable cargo space.
-        // Keep extra storage on the player for the remaining test cans.
         if (!player.FindAttachmentBySlotName("Vest"))
             player.GetInventory().CreateAttachment("HuntingVest");
         if (!player.FindAttachmentBySlotName("Legs"))
             player.GetInventory().CreateAttachment("CargoPants_Green");
 
-        array<string> catalogCanTypes;
-        PaintZ_PaintCatalog.GetCanTypes(catalogCanTypes);
+        array<string> availablePaintCans;
+        GetRegisteredPaintCanTypes(availablePaintCans);
         string firstPaintCan;
-        if (catalogCanTypes.Count() > 0)
-            firstPaintCan = catalogCanTypes[0];
+        if (availablePaintCans.Count() > 0)
+            firstPaintCan = availablePaintCans[0];
+
         array<string> canTypes = new array<string>;
         if (firstPaintCan != "")
             canTypes.Insert(firstPaintCan);
         canTypes.Insert("PaintZ_PaintStripperCan");
+
         foreach (string canType : canTypes)
         {
             for (int copy = 0; copy < 2; copy++)
@@ -90,7 +90,7 @@ class CustomMission: MissionServer
 
         KeepPlayerSafe(player);
         __PAINTZ_PLAYER_SMOKE_TEST__
-        player.MessageStatus("PaintZ runway sandbox: primary paint and stripper equipped; every generated paint is staged nearby.");
+        player.MessageStatus("PaintZ runway sandbox: first registered paint and stripper equipped; loaded paint-pack cans are staged nearby.");
     }
 
     protected void PrepareSandbox()
@@ -99,9 +99,9 @@ class CustomMission: MissionServer
         fixtureAnchor[1] = GetGame().SurfaceY(fixtureAnchor[0], fixtureAnchor[2]);
 
         array<string> paintCanTypes;
-        PaintZ_PaintCatalog.GetCanTypes(paintCanTypes);
+        GetRegisteredPaintCanTypes(paintCanTypes);
         for (int paintIndex = 0; paintIndex < paintCanTypes.Count(); paintIndex++)
-            SpawnFixture(fixtureAnchor, paintCanTypes[paintIndex], -0.75 + (paintIndex * 0.75), 0.75, "generated paint test can");
+            SpawnFixture(fixtureAnchor, paintCanTypes[paintIndex], -0.75 + (paintIndex * 0.75), 0.75, "registered paint-pack can");
         SpawnFixture(fixtureAnchor, "PaintZ_PaintStripperCan", -0.75 + (paintCanTypes.Count() * 0.75), 0.75, "Paint stripper test can");
 
         m_PaintZFixtureIndex = 0;
@@ -111,8 +111,35 @@ class CustomMission: MissionServer
         SpawnOptionalThirdPartyFixture(fixtureAnchor);
 
         __PAINTZ_POLICY_SMOKE_TEST__
+        Print("[PaintZ][Sandbox] Registered paint-can fixtures=" + paintCanTypes.Count());
         Print("[PaintZ][Sandbox] Vanilla weapon fixtures=" + weaponCount + " magazine fixtures=" + magazineCount);
         Print("[PaintZ][Sandbox] READY - curated vanilla fixtures spawned; no hive/CE; clear noon");
+    }
+
+    protected void GetRegisteredPaintCanTypes(out array<string> canTypes)
+    {
+        canTypes = new array<string>;
+        int childCount = GetGame().ConfigGetChildrenCount("CfgVehicles");
+        for (int i = 0; i < childCount; i++)
+        {
+            string className;
+            GetGame().ConfigGetChildName("CfgVehicles", i, className);
+            if (className == "")
+                continue;
+
+            string path = "CfgVehicles " + className;
+            if (GetGame().ConfigGetInt(path + " scope") != 2)
+                continue;
+
+            string finishId;
+            GetGame().ConfigGetText(path + " paintzFinish", finishId);
+            if (finishId == "")
+                GetGame().ConfigGetText(path + " paintzCode", finishId);
+            finishId.ToUpper();
+
+            if (finishId != "" && PaintZ_PaintPackRegistry.HasFinish(finishId))
+                canTypes.Insert(className);
+        }
     }
 
     protected void SpawnCuratedVanillaFixtures(vector fixtureAnchor, out int weaponCount, out int magazineCount)
@@ -158,51 +185,6 @@ class CustomMission: MissionServer
         }
     }
 
-    protected int SpawnVanillaConfigFixtures(vector fixtureAnchor, string configRoot, bool requireWeapon)
-    {
-        int spawnedCount;
-        int childCount = GetGame().ConfigGetChildrenCount(configRoot);
-
-        for (int i = 0; i < childCount; i++)
-        {
-            string fixtureType;
-            GetGame().ConfigGetChildName(configRoot, i, fixtureType);
-
-            string fixturePath = configRoot + " " + fixtureType;
-            if (GetGame().ConfigGetInt(fixturePath + " scope") != 2)
-                continue;
-
-            vector position = GetFixturePosition(fixtureAnchor, m_PaintZFixtureIndex);
-            EntityAI fixture = CreateGroundFixture(fixtureType, position);
-            if (!fixture)
-                continue;
-
-            bool accepted;
-            if (requireWeapon)
-            {
-                accepted = Weapon_Base.Cast(fixture) != null;
-            }
-            else
-            {
-                Magazine magazine = Magazine.Cast(fixture);
-                accepted = magazine != null && !fixture.IsAmmoPile();
-            }
-
-            if (!accepted)
-            {
-                GetGame().ObjectDelete(fixture);
-                continue;
-            }
-
-            FillItem(fixture);
-            m_PaintZFixtureIndex++;
-            spawnedCount++;
-            Print("[PaintZ][Sandbox] Spawned vanilla fixture " + fixtureType);
-        }
-
-        return spawnedCount;
-    }
-
     protected vector GetFixturePosition(vector fixtureAnchor, int fixtureIndex)
     {
         const int columns = 12;
@@ -215,7 +197,6 @@ class CustomMission: MissionServer
         vector position = fixtureAnchor;
         float rightOffset = (column - 5.5) * columnSpacing;
         float forwardOffset = 2.0 + (row * rowSpacing);
-        // Rows follow the runway northwest; columns run across it.
         position[0] = position[0] + (rightOffset * 0.8) - (forwardOffset * 0.6);
         position[2] = position[2] + (rightOffset * 0.6) + (forwardOffset * 0.8);
         position[1] = GetGame().SurfaceY(position[0], position[2]) + 0.05;
@@ -273,14 +254,10 @@ class CustomMission: MissionServer
 
     protected EntityAI CreateGroundFixture(string fixtureType, vector position)
     {
-        // Let the engine use each item's configured resting orientation and
-        // trace its model onto the surface. Forcing yaw with zero pitch/roll
-        // afterwards stands weapons upright and invalidates that placement.
         int flags = ECE_SETUP | ECE_PLACE_ON_SURFACE | ECE_ROTATIONFLAGS;
         EntityAI fixture = EntityAI.Cast(GetGame().CreateObjectEx(fixtureType, position, flags, RF_DEFAULT));
         if (fixture)
         {
-            // Same native rotated surface placement used by inventory drops.
             vector transform[4];
             fixture.GetTransform(transform);
             fixture.PlaceOnSurfaceRotated(transform, position, 0, 0, 0, true);
@@ -309,9 +286,7 @@ class CustomMission: MissionServer
         GetGame().GetPlayers(players);
 
         foreach (Man man: players)
-        {
             KeepPlayerSafe(PlayerBase.Cast(man));
-        }
     }
 
     protected void KeepPlayerSafe(PlayerBase player)
