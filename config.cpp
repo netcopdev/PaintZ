@@ -4,7 +4,6 @@ class CfgPatches
     {
         units[] =
         {
-            #include "tools\paintzgen\generated\dayz\PaintZ_Units.generated.inc"
             "PaintZ_PaintStripperCan"
         };
         weapons[] = {};
@@ -41,8 +40,7 @@ class CfgMods
                 value = "";
                 files[] =
                 {
-                    "PaintZ/Scripts/4_World",
-                    "PaintZ/tools/paintzgen/generated/dayz"
+                    "PaintZ/Scripts/4_World"
                 };
             };
 
@@ -92,10 +90,6 @@ class CfgVehicles
             };
         };
     };
-
-    // Transitional bridge only. These generated official cans/finishes remain
-    // in core until PaintZ-Standard-Pack is migrated to Paint Pack API v1.
-    #include "tools\paintzgen\generated\dayz\PaintZ_Paints.generated.inc"
 
     class PaintZ_PaintStripperCan : Spraycan_ColorBase
     {
