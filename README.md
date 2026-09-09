@@ -14,6 +14,18 @@ If PaintZ is temporarily unloaded while CF remains loaded, CF preserves PaintZ's
 
 PaintZ persists only the canonical finish ID. Derived pattern scale, texture path and selection index are not persistent data.
 
+## Painted item identification
+
+Painted items expose their PaintZ finish through DayZ's normal dynamic name and description hooks. With Flecktarn applied, for example, a `KA-74` is displayed as:
+
+`KA-74 [Flecktarn]`
+
+Its existing description is preserved and receives one additional line:
+
+`Finish: Flecktarn (PZ-C-FLK)`
+
+PaintZ calls the previous `NameOverride` / `DescriptionOverride` implementation first and decorates that result, so compatible third-party dynamic names and descriptions remain intact. Stripping the item clears the PaintZ logical finish state, so the extra name suffix and description line disappear automatically. This changes only UI presentation; it does not change the classname or persistence identity.
+
 ## Runtime policy
 
 Server administrators configure relevance and new-paint eligibility in:
@@ -108,7 +120,7 @@ No item replacement or classname change occurs.
 - `config/paintz_action_tuning_README.txt` — runtime action-tuning formulas and configuration contract.
 - `Scripts/4_World/PaintZ/Policy/` — generic type/class/declared-slot domain and rule policy.
 - `Scripts/4_World/PaintZ/Actions/PaintZ_ActionTuning.c` — size-dependent action timing/usage, runtime reload and client synchronization.
-- `Scripts/4_World/PaintZ/Paint/PaintZ_ItemPaintState.c` — shared inventory-item paint state, synchronization and CF persistence hooks.
+- `Scripts/4_World/PaintZ/Paint/PaintZ_ItemPaintState.c` — shared inventory-item paint state, dynamic display decoration, synchronization and CF persistence hooks.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_PaintPersistence.c` — CF ModStorage codec and post-load restoration helpers.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_PatternScaling.c` — server-side size measurement, scale mapping and live config reload.
 - `Scripts/4_World/PaintZ/Paint/PaintZ_PaintInspector.c` — runtime hidden-selection inspection.
