@@ -111,6 +111,20 @@ Longest collision-box size is intentionally an approximation rather than a promi
 
 Solid paints always resolve to the normal 1x texture.
 
+## Size-dependent action tuning
+
+Painting and stripping reuse the same longest-collision-box measurement exposed by `PaintZ_PatternScaling.GetMaxDimensionMeters()`. Size measurement is therefore implemented once and consumed by both pattern normalization and action tuning.
+
+`$profile:PaintZ/paintz_action_tuning.json` defines two physical-size endpoints, two action-time endpoints, and independent paint/stripper applications-per-full-can values. There are no discrete size buckets.
+
+For action time, the measured dimension is clamped to the configured minimum/maximum and linearly interpolated between the configured minimum/maximum times. For paint and stripper consumption, the same clamped dimension is proportional to `max_dimension_m`; the max-size cost is one full can divided by the configured applications-per-full-can value.
+
+With shipped defaults, 0.2 m maps to 5 seconds and 1/12 of a full can, while 0.8 m maps to 20 seconds and 1/3 of a full can. An unmeasurable target conservatively falls back to the max-size endpoint.
+
+The server owns and reloads this config. Every valid load/reload is synchronized to clients because `CAContinuousTime` is created on both sides and client/server action duration must agree. Server completion still recalculates/revalidates required quantity before modifying the target or consuming the applicator.
+
+The active duration for an already-running action is fixed when its action component is created. A later config reload affects newly started actions; the server's completion-time quantity check always uses the currently active authoritative settings.
+
 ## Object preservation
 
 Painting modifies the existing object with `SetObjectTexture()` and does not replace its classname. Health, ammunition, chamber state, attachments, cargo, inventory location and third-party state remain owned by DayZ/the original mod.
