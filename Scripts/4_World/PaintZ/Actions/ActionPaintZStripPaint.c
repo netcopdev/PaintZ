@@ -72,7 +72,7 @@ class ActionPaintZStripPaint : ActionContinuousBase
             return;
         }
 
-        float dimensionMeters = PaintZ_ActionTuning.ResolveDimensionMeters(entity);
+        float effectiveDimensionMeters = PaintZ_ActionTuning.ResolveDimensionMeters(entity);
         if (!PaintZ_PaintTarget.SetPaint(entity, PaintZ_PaintConstants.PAINT_NONE, selectionIndex))
         {
             player.MessageStatus("PaintZ could not restore this item's original finish.");
@@ -80,7 +80,7 @@ class ActionPaintZStripPaint : ActionContinuousBase
         }
 
         stripper.AddQuantity(-stripUsage, false);
-        PaintZ_PaintLog.Info("stripped target=" + entity.GetType() + " selection_index=" + selectionIndex + " dimension_m=" + dimensionMeters + " stripper_usage=" + stripUsage);
+        PaintZ_PaintLog.Info("stripped target=" + entity.GetType() + " selection_index=" + selectionIndex + " effective_dimension_m=" + effectiveDimensionMeters + " stripper_usage=" + stripUsage);
         player.MessageStatus("Original finish restored on " + entity.GetDisplayName() + ".");
     }
 };
