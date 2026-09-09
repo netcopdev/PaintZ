@@ -79,9 +79,6 @@ class PaintZ_PaintPackRegistry
     static const int API_VERSION = 1;
     protected static const string PACK_ROOT = "CfgPaintZPacks";
     protected static const string FINISH_ROOT = "CfgPaintZFinishes";
-    protected static const string LEGACY_PREFIX = "PZ";
-    protected static const string LEGACY_OWNER_CLASS = "PaintZ_LegacyBuiltIn";
-    protected static const string LEGACY_SOURCE = "<PaintZ core legacy bridge>";
 
     protected static bool s_Initialized;
     protected static ref array<ref PaintZ_PaintPackNamespace> s_Namespaces;
@@ -100,12 +97,10 @@ class PaintZ_PaintPackRegistry
 
         array<ref PaintZ_PaintPackNamespace> ownerCandidates = new array<ref PaintZ_PaintPackNamespace>;
         DiscoverConfigOwners(ownerCandidates);
-        AddLegacyOwner(ownerCandidates);
         ResolveOwners(ownerCandidates);
 
         array<ref PaintZ_FinishDefinition> finishCandidates = new array<ref PaintZ_FinishDefinition>;
         DiscoverConfigFinishes(finishCandidates);
-        AddLegacyFinishes(finishCandidates);
         ResolveFinishes(finishCandidates);
 
         PaintZ_PaintLog.Info("paint_pack_registry api=" + API_VERSION + " namespaces=" + s_Namespaces.Count() + " finishes=" + s_Finishes.Count());
@@ -281,18 +276,6 @@ class PaintZ_PaintPackRegistry
         }
     }
 
-    protected static void AddLegacyOwner(array<ref PaintZ_PaintPackNamespace> candidates)
-    {
-        PaintZ_PaintPackNamespace owner = new PaintZ_PaintPackNamespace();
-        owner.m_Prefix = LEGACY_PREFIX;
-        owner.m_ConfigClass = LEGACY_OWNER_CLASS;
-        owner.m_DisplayName = "PaintZ legacy built-in finishes";
-        owner.m_Source = LEGACY_SOURCE;
-        owner.m_ApiVersion = API_VERSION;
-        owner.m_Official = true;
-        candidates.Insert(owner);
-    }
-
     protected static void ResolveOwners(array<ref PaintZ_PaintPackNamespace> candidates)
     {
         TStringArray processed = new TStringArray;
@@ -392,10 +375,10 @@ class PaintZ_PaintPackRegistry
 
         string surfacesPath = path + " Surfaces";
         int surfaceCount = GetGame().ConfigGetChildrenCount(surfacesPath);
-        for (int i = 0; i < surfaceCount; i++)
+        for (int surfaceIndex = 0; surfaceIndex < surfaceCount; surfaceIndex++)
         {
             string surfaceChild;
-            GetGame().ConfigGetChildName(surfacesPath, i, surfaceChild);
+            GetGame().ConfigGetChildName(surfacesPath, surfaceIndex, surfaceChild);
             if (surfaceChild == "")
                 continue;
 
@@ -423,43 +406,6 @@ class PaintZ_PaintPackRegistry
         }
 
         return finish;
-    }
-
-    protected static void AddLegacyFinishes(array<ref PaintZ_FinishDefinition> candidates)
-    {
-        PaintZ_PaintPackNamespace owner = GetNamespace(LEGACY_PREFIX);
-        if (!owner || owner.m_Source != LEGACY_SOURCE)
-            return;
-
-        TStringArray paintCodes = new TStringArray;
-        PaintZ_PaintCatalog.GetPaintCodes(paintCodes);
-        for (int i = 0; i < paintCodes.Count(); i++)
-        {
-            string paintCode = paintCodes.Get(i);
-            PaintZ_FinishDefinition finish = new PaintZ_FinishDefinition();
-            finish.m_Id = paintCode;
-            finish.m_Prefix = LEGACY_PREFIX;
-            finish.m_OwnerClass = LEGACY_OWNER_CLASS;
-            finish.m_DisplayName = PaintZ_PaintCatalog.GetFinishName(paintCode);
-            finish.m_Type = LegacyTypeName(paintCode);
-            finish.m_Source = LEGACY_SOURCE;
-            finish.m_IsPattern = PaintZ_PaintCatalog.IsPatternPaint(paintCode);
-
-            if (finish.m_IsPattern)
-            {
-                for (int scalePercent = 1; scalePercent <= 1000; scalePercent++)
-                {
-                    if (PaintZ_PaintCatalog.IsSupportedPatternScale(scalePercent))
-                        finish.AddSurface(scalePercent, LegacySurfaceTexture(paintCode, scalePercent));
-                }
-            }
-            else
-            {
-                finish.AddSurface(100, LegacySurfaceTexture(paintCode, 100));
-            }
-
-            candidates.Insert(finish);
-        }
     }
 
     protected static void ResolveFinishes(array<ref PaintZ_FinishDefinition> candidates)
@@ -612,50 +558,5 @@ class PaintZ_PaintPackRegistry
         }
 
         return false;
-    }
-
-    protected static string LegacyTypeName(string paintCode)
-    {
-        string prefix;
-        string typeCode;
-        string suffix;
-        if (!ParseFinishId(paintCode, prefix, typeCode, suffix))
-            return "special";
-
-        if (typeCode == "S")
-            return "solid";
-        if (typeCode == "C")
-            return "camo";
-        if (typeCode == "P")
-            return "pattern";
-        if (typeCode == "M")
-            return "metallic";
-        if (typeCode == "R")
-            return "rusted";
-        if (typeCode == "W")
-            return "weathered";
-        if (typeCode == "F")
-            return "fluorescent";
-        if (typeCode == "T")
-            return "transparent";
-
-        return "special";
-    }
-
-    protected static string LegacySurfaceTexture(string paintCode, int scalePercent)
-    {
-        string textureStem = paintCode;
-        textureStem.ToLower();
-        textureStem.Replace("-", "_");
-        if (scalePercent == 100)
-            return "paintz\\data\\surfaces\\" + textureStem + "_co.paa";
-
-        string scaleText = "" + scalePercent;
-        if (scalePercent < 10)
-            scaleText = "00" + scaleText;
-        else if (scalePercent < 100)
-            scaleText = "0" + scaleText;
-
-        return "paintz\\data\\surfaces\\" + textureStem + "_s" + scaleText + "_co.paa";
     }
 };
