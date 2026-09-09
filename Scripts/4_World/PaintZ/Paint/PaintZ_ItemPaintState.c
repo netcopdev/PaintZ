@@ -30,6 +30,7 @@ modded class ItemBase
     protected int m_PaintZPaintSelection = -1;
     protected int m_PaintZPaintCodeHash;
     protected int m_PaintZPatternScalePercent = 100;
+    protected bool m_PaintZHasState;
     protected bool m_PaintZRestoreQueued;
 
     void ItemBase()
@@ -37,6 +38,7 @@ modded class ItemBase
         RegisterNetSyncVariableInt("m_PaintZPaintCodeHash", int.MIN, int.MAX);
         RegisterNetSyncVariableInt("m_PaintZPaintSelection", -1, 255);
         RegisterNetSyncVariableInt("m_PaintZPatternScalePercent", 1, 1000);
+        RegisterNetSyncVariableBool("m_PaintZHasState");
     }
 
     bool PaintZ_SetPaintState(string paintCode, int selectionIndex)
@@ -47,6 +49,7 @@ modded class ItemBase
             m_PaintZPaintSelection = -1;
             m_PaintZPaintCodeHash = 0;
             m_PaintZPatternScalePercent = 100;
+            m_PaintZHasState = false;
             SetSynchDirty();
             return true;
         }
@@ -63,6 +66,7 @@ modded class ItemBase
         m_PaintZPaintSelection = selectionIndex;
         m_PaintZPaintCodeHash = PaintZ_PaintStateRuntime.GetNetworkHash(paintCode);
         m_PaintZPatternScalePercent = scalePercent;
+        m_PaintZHasState = paintCode != PaintZ_PaintConstants.PAINT_NONE;
         SetSynchDirty();
 
         if (PaintZ_PaintPackRegistry.IsPatternFinish(paintCode))
@@ -90,6 +94,11 @@ modded class ItemBase
     int PaintZ_GetPatternScalePercent()
     {
         return m_PaintZPatternScalePercent;
+    }
+
+    bool PaintZ_HasState()
+    {
+        return m_PaintZHasState;
     }
 
     protected string PaintZ_GetDisplayFinishName()
@@ -139,11 +148,12 @@ modded class ItemBase
         m_PaintZPaintSelection = -1;
         m_PaintZPaintCodeHash = PaintZ_PaintStateRuntime.GetNetworkHash(paintCode);
         m_PaintZPatternScalePercent = 100;
+        m_PaintZHasState = paintCode != PaintZ_PaintConstants.PAINT_NONE;
     }
 
     void PaintZ_QueueLoadedPaintRestore()
     {
-        if (m_PaintZRestoreQueued || m_PaintZPaintCode == PaintZ_PaintConstants.PAINT_NONE || !GetGame())
+        if (m_PaintZRestoreQueued || !m_PaintZHasState || !GetGame())
             return;
 
         m_PaintZRestoreQueued = true;
@@ -164,6 +174,7 @@ modded class ItemBase
         m_PaintZPaintSelection = restoredSelection;
         m_PaintZPatternScalePercent = restoredScalePercent;
         m_PaintZPaintCodeHash = PaintZ_PaintStateRuntime.GetNetworkHash(m_PaintZPaintCode);
+        m_PaintZHasState = m_PaintZPaintCode != PaintZ_PaintConstants.PAINT_NONE;
         if (GetGame().IsServer())
             SetSynchDirty();
     }
@@ -192,7 +203,7 @@ modded class ItemBase
     {
         super.OnVariablesSynchronized();
         m_PaintZPaintCode = PaintZ_PaintStateRuntime.GetNetworkPaintCode(m_PaintZPaintCodeHash);
-        if (m_PaintZPaintSelection < 0)
+        if (!m_PaintZHasState || m_PaintZPaintSelection < 0)
             return;
 
         PaintZ_PaintVisuals.Apply(this, m_PaintZPaintCode, m_PaintZPaintSelection, m_PaintZPatternScalePercent);
