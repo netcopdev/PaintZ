@@ -63,7 +63,7 @@ class ActionPaintZPaintBase : ActionContinuousBase
         EntityAI entity = evaluation.m_Target;
         PaintZ_PaintInspectionResult inspection = evaluation.m_Inspection;
         float paintUsage = PaintZ_ActionTuning.ResolvePaintUsage(entity, spray);
-        float dimensionMeters = PaintZ_ActionTuning.ResolveDimensionMeters(entity);
+        float effectiveDimensionMeters = PaintZ_ActionTuning.ResolveDimensionMeters(entity);
 
         if (!PaintZ_PaintTarget.SetPaint(entity, paintCode, inspection.m_SelectionIndex))
         {
@@ -73,7 +73,7 @@ class ActionPaintZPaintBase : ActionContinuousBase
 
         spray.AddQuantity(-paintUsage, false);
         string finishName = PaintZ_PaintConstants.GetFinishName(paintCode);
-        PaintZ_PaintLog.Info("applied=" + paintCode + " name=" + finishName + " target=" + entity.GetType() + " selection=" + inspection.m_SelectionName + " index=" + inspection.m_SelectionIndex + " dimension_m=" + dimensionMeters + " paint_usage=" + paintUsage);
+        PaintZ_PaintLog.Info("applied=" + paintCode + " name=" + finishName + " target=" + entity.GetType() + " selection=" + inspection.m_SelectionName + " index=" + inspection.m_SelectionIndex + " effective_dimension_m=" + effectiveDimensionMeters + " paint_usage=" + paintUsage);
         player.MessageStatus(finishName + " paint applied to " + entity.GetDisplayName() + ".");
     }
 
