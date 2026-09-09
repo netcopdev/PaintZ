@@ -99,6 +99,7 @@ class PaintZ_PaintPackApiFixtureSmoke
         float expectedPaintQuantity = paintBefore - expectedPaintUsage;
         float paintQuantityDelta = Math.AbsFloat(paintCan.GetQuantity() - expectedPaintQuantity);
         Check(targetItem && targetItem.PaintZ_GetPaintCode() == "TST-S-RED", "generic action stores external finish ID");
+        Check(targetItem && targetItem.PaintZ_HasState(), "generic action sets synchronized PaintZ state marker");
         Check(PaintZ_PaintVisuals.HasPaint(target, inspection.m_SelectionIndex), "generic action applies registered external surface");
         Check(paintQuantityDelta < 0.01, "generic action consumes configured paint amount");
 
@@ -115,17 +116,20 @@ class PaintZ_PaintPackApiFixtureSmoke
         float expectedStripQuantity = stripBefore - expectedStripUsage;
         float stripQuantityDelta = Math.AbsFloat(stripper.GetQuantity() - expectedStripQuantity);
         Check(targetItem.PaintZ_GetPaintCode() == PaintZ_PaintConstants.PAINT_NONE, "strip clears logical external finish ID");
+        Check(!targetItem.PaintZ_HasState(), "strip clears synchronized PaintZ state marker");
         Check(targetItem.PaintZ_GetPaintSelection() < 0, "strip clears synchronized painted selection");
         Check(!PaintZ_PaintVisuals.HasPaint(target, inspection.m_SelectionIndex), "strip restores original visual");
         Check(stripQuantityDelta < 0.01, "strip consumes configured stripper amount");
 
+        stripper.SetQuantity(stripper.GetQuantityMax());
         string unresolvedFinish = "ZZZ-C-OLD";
         targetItem.PaintZ_LoadPaintState(unresolvedFinish);
         targetItem.PaintZ_RestoreLoadedPaint();
         int unresolvedSelection = targetItem.PaintZ_GetPaintSelection();
         Check(targetItem.PaintZ_GetPaintCode() == unresolvedFinish, "unresolved historical finish ID remains logical state");
+        Check(targetItem.PaintZ_HasState(), "unresolved historical finish keeps synchronized state marker");
         Check(PaintZ_PaintStateRuntime.GetNetworkHash(unresolvedFinish) == 0, "unresolved historical finish synchronizes no active finish hash");
-        Check(unresolvedSelection >= 0, "unresolved historical state retains a strip target selection");
+        Check(unresolvedSelection >= 0, "unresolved historical state retains a strip target selection when target remains inspectable");
         Check(!PaintZ_PaintVisuals.HasPaint(target, unresolvedSelection), "unresolved historical finish displays original visual");
         Check(PaintZ_PaintedState.HasPaintState(target), "unresolved historical state is still recognized as PaintZ state");
         Check(stripAction.ActionCondition(player, actionTarget, stripper), "unresolved historical state remains strippable");
@@ -133,8 +137,34 @@ class PaintZ_PaintPackApiFixtureSmoke
         stripData.m_MainItem = stripper;
         stripAction.OnFinishProgressServer(stripData);
         Check(targetItem.PaintZ_GetPaintCode() == PaintZ_PaintConstants.PAINT_NONE, "stripping unresolved state clears logical finish ID");
+        Check(!targetItem.PaintZ_HasState(), "stripping unresolved state clears synchronized state marker");
         Check(targetItem.PaintZ_GetPaintSelection() < 0, "stripping unresolved state clears selection");
 
+        EntityAI unsupported = EntityAI.Cast(GetGame().CreateObjectEx("Ammo_556x45", player.GetPosition(), ECE_PLACE_ON_SURFACE));
+        ItemBase unsupportedItem = ItemBase.Cast(unsupported);
+        Check(unsupportedItem != null, "unpaintable historical-state fixture spawned");
+        if (unsupportedItem)
+        {
+            unsupportedItem.PaintZ_LoadPaintState(unresolvedFinish);
+            unsupportedItem.PaintZ_RestoreLoadedPaint();
+            Check(unsupportedItem.PaintZ_HasState(), "unpaintable unresolved item retains synchronized state marker");
+            Check(unsupportedItem.PaintZ_GetPaintSelection() < 0, "unpaintable unresolved item needs no paint selection");
+
+            ActionTarget unsupportedTarget = new ActionTarget(unsupported, null, -1, unsupported.GetPosition(), 0);
+            stripper.SetQuantity(stripper.GetQuantityMax());
+            Check(stripAction.ActionCondition(player, unsupportedTarget, stripper), "unpaintable unresolved item still offers Strip Paint");
+
+            ActionData unsupportedStripData = new ActionData();
+            unsupportedStripData.m_Player = player;
+            unsupportedStripData.m_Target = unsupportedTarget;
+            unsupportedStripData.m_MainItem = stripper;
+            stripAction.OnFinishProgressServer(unsupportedStripData);
+            Check(!unsupportedItem.PaintZ_HasState(), "stripping unpaintable unresolved item clears state marker");
+            Check(unsupportedItem.PaintZ_GetPaintCode() == PaintZ_PaintConstants.PAINT_NONE, "stripping unpaintable unresolved item clears logical state");
+        }
+
+        if (unsupported)
+            GetGame().ObjectDelete(unsupported);
         Cleanup(target, paintCan, stripper);
         Print("[PaintZ][PackAPI Smoke] PLAYER COMPLETE passed=" + s_Passed + " failed=" + s_Failed);
     }
