@@ -4,9 +4,16 @@ modded class PlayerBase
     {
         super.OnRPC(sender, rpc_type, ctx);
 
-        if (rpc_type != PaintZ_ItemPolicy.RPC_POLICY_SYNC || !GetGame().IsClient())
+        if (!GetGame().IsClient())
             return;
 
-        PaintZ_ItemPolicy.ReceiveFromServer(ctx);
+        if (rpc_type == PaintZ_ItemPolicy.RPC_POLICY_SYNC)
+        {
+            PaintZ_ItemPolicy.ReceiveFromServer(ctx);
+            return;
+        }
+
+        if (rpc_type == PaintZ_ActionTuning.RPC_ACTION_TUNING_SYNC)
+            PaintZ_ActionTuning.ReceiveFromServer(ctx);
     }
 };
