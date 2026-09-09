@@ -2,6 +2,8 @@
 
 Before modifying, creating, deleting, renaming, generating, rebasing, or moving any repository work, you MUST read `docs/CODEX_PROJECT_RULES.md` completely and follow it together with this file.
 
+For any work involving paint packs, finish registration/identity, spray-can pack integration, PackKit output, namespace handling, or cross-repository interoperability, you MUST also read and follow `docs/PAINT_PACK_API.md`. That file is the authoritative interoperability contract for PaintZ, PaintZ-PackKit, and PaintZ-Standard-Pack.
+
 ## Mandatory Git and dependency preflight
 
 Before any repository change, inspect:
