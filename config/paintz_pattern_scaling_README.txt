@@ -19,24 +19,32 @@ on every server start.
 
 Purpose
 -------
-Patterned finishes use generated texture variants with different pattern
-geometry sizes. PaintZ measures the target's longest collision-box dimension,
-then selects a configured scale for the finish being applied.
+Patterned finishes may provide texture variants with different pattern geometry
+sizes. PaintZ measures the target's longest collision-box dimension, then asks
+for the configured scale for the finish being applied.
 
 This is an approximation. Physical model size does not reveal UV density, so
 two items with similar physical dimensions can still need different-looking
 pattern scales.
 
-Only finishes backed by a pattern image use scaling. Solid colors always use
-the normal 1x texture.
+Only finishes declared as patterns use scaling. Solid/non-pattern finishes always
+use their normal 100% surface.
 
-Supported scales
+Available scales
 ----------------
+Scale availability is now defined per registered PaintZ finish by its paint pack.
+There is no longer one global generated-scale list that every pack must contain.
+
+The Standard/legacy PaintZ finishes currently provide the familiar variants:
 0.5, 0.75, 1.0, 1.5, 2.0, 3.0
 
-1.0 is the existing PaintZ pattern size.
-2.0 makes the pattern geometry approximately twice as large.
-0.5 makes it approximately half as large.
+A third-party pack may provide a different subset. Every finish must provide 1.0
+(100%). If paintz_pattern_scaling.json selects a scale that a particular finish
+does not provide, PaintZ falls back to that finish's configured default scale
+when available, then to 1.0.
+
+Configured scale values must be greater than 0, no more than 10.0, and resolve
+to a whole percentage. For example 0.75 = 75%, 1.0 = 100%, 1.5 = 150%.
 
 Configuration
 -------------
@@ -59,7 +67,7 @@ increasing max_dimension_m. The first range whose maximum is greater than or
 equal to the measured item dimension wins. Items larger than every configured
 range use default_scale.
 
-Set ranges to [] to make every patterned item use default_scale.
+Set ranges to [] to make every patterned item request default_scale.
 
 reload_seconds
 --------------
@@ -89,9 +97,10 @@ object on the server.
 
 Persistence
 -----------
-PaintZ persists only the canonical finish ID, for example PZ-C-WDL. The chosen
-scale and derived texture path are never persisted. Scale is recalculated from
-the current configuration whenever the persisted finish is restored.
+PaintZ persists only the canonical finish ID, for example PZ-C-WDL or
+NCP-C-FTN. The chosen scale and texture path are never persisted. Scale is
+recalculated from the current configuration and the currently registered finish
+assets whenever persisted paint is restored.
 
 Testing/tuning
 --------------
@@ -101,5 +110,5 @@ paintz_pattern_scaling.json, wait for its reload interval, then repaint the test
 item.
 
 Because magazines, suppressors, optics, stocks and other attachments can have
-overlapping physical sizes but different UV layouts, a size-only mapping
-cannot guarantee identical real-world camouflage geometry on every model.
+overlapping physical sizes but different UV layouts, a size-only mapping cannot
+guarantee identical real-world camouflage geometry on every model.
