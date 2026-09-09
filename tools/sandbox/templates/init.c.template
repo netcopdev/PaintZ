@@ -105,13 +105,57 @@ class CustomMission: MissionServer
         SpawnFixture(fixtureAnchor, "PaintZ_PaintStripperCan", -0.75 + (paintCanTypes.Count() * 0.75), 0.75, "Paint stripper test can");
 
         m_PaintZFixtureIndex = 0;
-        int weaponCount = SpawnVanillaConfigFixtures(fixtureAnchor, "CfgWeapons", true);
-        int magazineCount = SpawnVanillaConfigFixtures(fixtureAnchor, "CfgMagazines", false);
+        int weaponCount;
+        int magazineCount;
+        SpawnCuratedVanillaFixtures(fixtureAnchor, weaponCount, magazineCount);
         SpawnOptionalThirdPartyFixture(fixtureAnchor);
 
         __PAINTZ_POLICY_SMOKE_TEST__
         Print("[PaintZ][Sandbox] Vanilla weapon fixtures=" + weaponCount + " magazine fixtures=" + magazineCount);
-        Print("[PaintZ][Sandbox] READY - dynamic vanilla fixtures spawned; no hive/CE; clear noon");
+        Print("[PaintZ][Sandbox] READY - curated vanilla fixtures spawned; no hive/CE; clear noon");
+    }
+
+    protected void SpawnCuratedVanillaFixtures(vector fixtureAnchor, out int weaponCount, out int magazineCount)
+    {
+        array<string> weaponTypes = {"M4A1", "AKM", "FAL", "MP5K", "SKS", "Mosin9130", "SVD", "Winchester70"};
+        array<string> magazineTypes = {"Mag_CMAG_30Rnd_Black", "Mag_STANAG_30Rnd", "Mag_AKM_30Rnd", "Mag_AK74_30Rnd", "Mag_FAL_20Rnd"};
+
+        foreach (string weaponType : weaponTypes)
+        {
+            vector weaponPosition = GetFixturePosition(fixtureAnchor, m_PaintZFixtureIndex);
+            EntityAI weapon = CreateGroundFixture(weaponType, weaponPosition);
+            if (!weapon || !Weapon_Base.Cast(weapon))
+            {
+                if (weapon)
+                    GetGame().ObjectDelete(weapon);
+                Print("[PaintZ][Sandbox] FAILED curated weapon fixture " + weaponType);
+                continue;
+            }
+
+            FillItem(weapon);
+            m_PaintZFixtureIndex++;
+            weaponCount++;
+            Print("[PaintZ][Sandbox] Spawned curated weapon fixture " + weaponType);
+        }
+
+        foreach (string magazineType : magazineTypes)
+        {
+            vector magazinePosition = GetFixturePosition(fixtureAnchor, m_PaintZFixtureIndex);
+            EntityAI magazineEntity = CreateGroundFixture(magazineType, magazinePosition);
+            Magazine magazine = Magazine.Cast(magazineEntity);
+            if (!magazine || magazineEntity.IsAmmoPile())
+            {
+                if (magazineEntity)
+                    GetGame().ObjectDelete(magazineEntity);
+                Print("[PaintZ][Sandbox] FAILED curated magazine fixture " + magazineType);
+                continue;
+            }
+
+            FillItem(magazineEntity);
+            m_PaintZFixtureIndex++;
+            magazineCount++;
+            Print("[PaintZ][Sandbox] Spawned curated magazine fixture " + magazineType);
+        }
     }
 
     protected int SpawnVanillaConfigFixtures(vector fixtureAnchor, string configRoot, bool requireWeapon)
