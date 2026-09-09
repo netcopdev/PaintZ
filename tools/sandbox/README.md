@@ -39,25 +39,42 @@ Steam library drives. Runtime files and logs are isolated under
 
 ## Default fixtures
 
-| Fixture | Expected behavior |
-|---|---|
-| `M4A1` | Paint action when the held can's finish is registered |
-| `Mag_AKM_30Rnd` | Paint action when technically supported and policy allows it |
-| `Mag_STANAG_30Rnd` | `Cannot Paint` (no suitable hidden selection) |
-| `Ammo_556x45` | No PaintZ action; loose ammo is deliberately out of scope |
-| Every class generated from the current legacy `paints.json` bridge | One paint can on the ground |
-| `PaintZ_PaintStripperCan` | Orange can; the only can that strips paint |
+The sandbox intentionally uses a curated vanilla set instead of instantiating every
+`scope=2` weapon class from the game config. DayZ contains public/internal weapon
+entries whose FSMs are incomplete or unsuitable for direct mission spawning in
+DayZDiag; blindly constructing them produces unrelated `Virtual Machine Exception`
+noise and obscures PaintZ failures.
+
+Current curated weapons:
+
+- `M4A1`
+- `AKM`
+- `FAL`
+- `MP5K`
+- `SKS`
+- `Mosin9130`
+- `SVD`
+- `Winchester70`
+
+Current curated magazines:
+
+- `Mag_CMAG_30Rnd_Black`
+- `Mag_STANAG_30Rnd`
+- `Mag_AKM_30Rnd`
+- `Mag_AK74_30Rnd`
+- `Mag_FAL_20Rnd`
+
+Every class generated from the current legacy `paints.json` bridge is staged as one
+paint can on the ground, together with `PaintZ_PaintStripperCan`.
 
 Paint cans only paint. Hold the separate orange Paint Stripper to remove a finish.
 It offers Strip Paint only on items carrying PaintZ state. Paint/stripper quantity
 consumption is size-dependent and comes from `paintz_action_tuning.json`; the
 sandbox must not assume a fixed per-action quantity cost.
 
-The sandbox enumerates public vanilla weapons and magazines dynamically, so
-the rows above are examples rather than a complete fixture list.
-
 Fixture classnames exist only in this isolated mission template. PaintZ's runtime
-paint code remains classname-agnostic.
+paint code remains classname-agnostic. A specific third-party weapon can still be
+added explicitly with `-ThirdPartyWeaponClass`.
 
 ## Useful options
 
@@ -71,9 +88,9 @@ pwsh -File .\tools\sandbox\Start-PaintZSandbox.ps1 -RunSmokeTests -ServerOnly
 pwsh -File .\tools\sandbox\Start-PaintZSandbox.ps1 -ServerOnly
 ```
 
-`-RunSmokeTests` appends the older diagnostic smoke suite to the generated mission.
-Some of those checks still exercise the transitional built-in `PaintZ_PaintCatalog`
-bridge and will be retired when the Standard Pack migration removes that bridge.
+`-RunSmokeTests` appends the diagnostic smoke suite to the generated mission.
+Some checks still exercise the transitional built-in `PaintZ_PaintCatalog` bridge
+and will be retired when the Standard Pack migration removes that bridge.
 
 `-SkipBuild` remains accepted for compatibility, but is deprecated because skipping
 the build is now the default.
@@ -115,8 +132,11 @@ pwsh -File .\tools\sandbox\Start-PaintZSandbox.ps1 `
   -AdditionalMods $fixture
 ```
 
-The fixture runs its own registry and player/application checks. Search the RPT
-or script log for:
+The fixture runs its own registry and player/application checks. After those checks,
+it also leaves a red test can, a pattern test can, and an M4 on the ground near the
+player so manual API-v1 painting and stripping can be verified without VPP/Admin tools.
+
+Search the RPT or script log for:
 
 ```text
 [PaintZ][PackAPI Smoke]
