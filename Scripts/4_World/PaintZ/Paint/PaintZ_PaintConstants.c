@@ -1,8 +1,5 @@
 class PaintZ_PaintConstants
 {
-    static const int SPRAY_COST = 10;
-    static const int STRIP_COST = 10;
-
     // A paint's product code is its sole persistent identity. Pattern scale is
     // derived visual state and must never become part of the product ID.
     static const string PAINT_NONE = "";
