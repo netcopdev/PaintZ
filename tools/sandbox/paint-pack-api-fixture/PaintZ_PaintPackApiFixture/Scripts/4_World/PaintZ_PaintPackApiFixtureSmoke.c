@@ -25,10 +25,11 @@ class PaintZ_PaintPackApiFixtureSmoke
         PaintZ_PaintPackRegistry.EnsureInitialized();
 
         Check(PaintZ_PaintPackRegistry.IsNamespaceValid("TST"), "valid TST namespace registered");
-        Check(PaintZ_PaintPackRegistry.HasFinish("TST-S-RED"), "valid solid finish registered");
-        Check(PaintZ_PaintPackRegistry.HasFinish("tst-s-red"), "finish lookup is case-normalized");
-        Check(PaintZ_PaintPackRegistry.GetFinishName("TST-S-RED") == "Fixture Red", "finish display name resolved");
-        Check(PaintZ_PaintPackRegistry.GetSurfaceTexture("TST-S-RED", 100) == "#(argb,8,8,3)color(1,0,0,1.0,CO)", "explicit solid surface resolved");
+        Check(PaintZ_PaintPackRegistry.HasFinish("TST-B-RED"), "valid Basic finish registered");
+        Check(PaintZ_PaintPackRegistry.HasFinish("tst-b-red"), "finish lookup is case-normalized");
+        Check(PaintZ_PaintPackRegistry.GetFinishName("TST-B-RED") == "Fixture Basic Red", "Basic finish display name resolved");
+        Check(PaintZ_PaintPackRegistry.GetSurfaceTexture("TST-B-RED", 100) == "#(argb,8,8,3)color(1,0,0,1.0,CO)", "procedural Basic surface resolved");
+        Check(!PaintZ_PaintPackRegistry.HasFinish("TST-B-BAD"), "Basic finish with non-procedural surface rejected");
 
         Check(PaintZ_PaintPackRegistry.HasFinish("TST-C-PAT"), "valid pattern finish registered");
         Check(PaintZ_PaintPackRegistry.IsPatternFinish("TST-C-PAT"), "pattern flag registered");
@@ -48,8 +49,8 @@ class PaintZ_PaintPackApiFixtureSmoke
         Check(!PaintZ_PaintPackRegistry.IsNamespaceValid("AP2"), "unsupported API namespace rejected");
         Check(!PaintZ_PaintPackRegistry.HasFinish("AP2-S-RED"), "finish under unsupported API namespace disabled");
 
-        int hash = "TST-S-RED".Hash();
-        Check(PaintZ_PaintPackRegistry.GetFinishIdByNetworkHash(hash) == "TST-S-RED", "network hash resolves registered finish");
+        int hash = "TST-B-RED".Hash();
+        Check(PaintZ_PaintPackRegistry.GetFinishIdByNetworkHash(hash) == "TST-B-RED", "network hash resolves registered Basic finish");
         Check(PaintZ_PaintStateRuntime.GetNetworkHash("ZZZ-C-OLD") == 0, "unresolved finish is never exposed as a network hash");
 
         Print("[PaintZ][PackAPI Smoke] REGISTRY COMPLETE passed=" + s_Passed + " failed=" + s_Failed);
@@ -71,7 +72,7 @@ class PaintZ_PaintPackApiFixtureSmoke
             return;
         }
 
-        Check(paintCan.GetPaintZPaintCode() == "TST-S-RED", "thin can class exposes paintzFinish");
+        Check(paintCan.GetPaintZPaintCode() == "TST-B-RED", "thin can class exposes Basic paintzFinish");
         paintCan.SetQuantity(paintCan.GetQuantityMax());
         stripper.SetQuantity(stripper.GetQuantityMax());
 
@@ -85,7 +86,7 @@ class PaintZ_PaintPackApiFixtureSmoke
 
         ActionTarget actionTarget = new ActionTarget(target, null, -1, target.GetPosition(), 0);
         ActionPaintZPaint paintAction = new ActionPaintZPaint();
-        Check(paintAction.ActionCondition(player, actionTarget, paintCan), "generic paint action accepts external-pack can");
+        Check(paintAction.ActionCondition(player, actionTarget, paintCan), "generic paint action accepts external-pack Basic can");
 
         float paintBefore = paintCan.GetQuantity();
         float expectedPaintUsage = PaintZ_ActionTuning.ResolvePaintUsage(target, paintCan);
@@ -98,13 +99,13 @@ class PaintZ_PaintPackApiFixtureSmoke
         ItemBase targetItem = ItemBase.Cast(target);
         float expectedPaintQuantity = paintBefore - expectedPaintUsage;
         float paintQuantityDelta = Math.AbsFloat(paintCan.GetQuantity() - expectedPaintQuantity);
-        Check(targetItem && targetItem.PaintZ_GetPaintCode() == "TST-S-RED", "generic action stores external finish ID");
+        Check(targetItem && targetItem.PaintZ_GetPaintCode() == "TST-B-RED", "generic action stores external Basic finish ID");
         Check(targetItem && targetItem.PaintZ_HasState(), "generic action sets synchronized PaintZ state marker");
-        Check(PaintZ_PaintVisuals.HasPaint(target, inspection.m_SelectionIndex), "generic action applies registered external surface");
+        Check(PaintZ_PaintVisuals.HasPaint(target, inspection.m_SelectionIndex), "generic action applies registered procedural Basic surface");
         Check(paintQuantityDelta < 0.01, "generic action consumes configured paint amount");
 
         ActionPaintZStripPaint stripAction = new ActionPaintZStripPaint();
-        Check(stripAction.ActionCondition(player, actionTarget, stripper), "strip action sees externally painted item");
+        Check(stripAction.ActionCondition(player, actionTarget, stripper), "strip action sees externally painted Basic item");
         float stripBefore = stripper.GetQuantity();
         float expectedStripUsage = PaintZ_ActionTuning.ResolveStripUsage(target, stripper);
         ActionData stripData = new ActionData();
