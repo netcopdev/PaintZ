@@ -1,77 +1,49 @@
 # Paint Pack API v1 runtime acceptance
 
-This checklist is the acceptance gate for the PaintZ runtime-registry implementation. It does not replace `PAINT_PACK_API.md` or `PAINT_PACK_CONFIG_V1.md`; it defines how to prove the implementation actually loads and behaves correctly in DayZ.
+This checklist is the runtime acceptance gate for PaintZ's registry and content-pack interoperability. It does not replace `PAINT_PACK_API.md` or `PAINT_PACK_CONFIG_V1.md`.
 
-The branch must not be merged solely because static review passes. Enforce Script and DayZ config must be compiled/loaded by DayZ Tools/DayZDiag.
+Static review alone is insufficient for integration. Enforce Script and DayZ config must ultimately be built and loaded with DayZ Tools/DayZDiag.
 
 ## 1. Static preflight
 
-Before building:
+Before runtime testing verify:
 
-```powershell
-git switch feature/paint-pack-runtime-registry
-git status --short
-rg -n "STRIP_COST|ActionPaintZPaint_[A-Z]" tools\sandbox\PaintZ_FinishSmokeTest.c
-rg -n '^\s*[A-Za-z_][A-Za-z0-9_\.]*\s*\(\s*$' Scripts tools\sandbox\paint-pack-api-fixture -g '*.c'
-```
-
-Expected:
-
-- no `STRIP_COST` reference in the current smoke suite;
-- no generated per-finish paint action used by the current smoke-suite action tests;
-- every parser-safety grep match is a declaration or otherwise intentionally valid, not a vertically split invocation.
-
-The transitional `PaintZ_PaintCatalog` is still expected while the built-in `PZ` bridge exists. It is removed only when Standard Pack becomes the official `PZ` owner.
+- PaintZ core declares exactly one official `PZ` namespace owner named `PZ_PaintZOfficial`;
+- PaintZ core contains no individual official finish catalogue/assets/cans;
+- an official PackKit-generated content pack emits no `CfgPaintZPacks` declaration;
+- official `PZ-*` finishes use `owner = "PZ_PaintZOfficial"`;
+- official content packs depend on `PaintZ_DynamicPaint`, not on another official content pack;
+- normal third-party owner/satellite behavior remains available and separate from the official model.
 
 ## 2. Build PaintZ
 
-With existing generated legacy paint assets:
+From the current runtime branch:
 
 ```powershell
 pwsh -File .\tools\build.ps1 -SkipPaintZGen
 ```
 
-If the checkout has no generated legacy assets, regenerate them for this transitional branch instead:
-
-```powershell
-pwsh -File .\tools\build.ps1
-```
-
 Acceptance:
 
 - AddonBuilder completes successfully;
-- `PaintZ.pbo` is freshly produced;
-- no Enforce compile error is reported when the PBO is subsequently loaded by DayZDiag;
-- current built-in `PZ-*` cans still load through the temporary registry bridge.
+- PaintZ PBO is freshly produced;
+- no PaintZ Enforce/config error occurs when loaded;
+- the core `PZ_PaintZOfficial` owner is discoverable;
+- PaintZ loads correctly with no official content pack installed.
 
-## 3. Build the external API fixture
+## 3. Build external API fixture
 
 ```powershell
 pwsh -File .\tools\sandbox\Build-PaintPackApiFixture.ps1
 ```
 
-Default result:
+The fixture should contain valid third-party content plus deliberately invalid registrations for namespace/owner/finish collision testing.
 
-```text
-%LOCALAPPDATA%\PaintZSandbox\@PaintZ-PaintPackApiFixture
-```
+## 4. Run runtime/smoke tests
 
-This fixture is test-only and deliberately contains invalid registrations in addition to valid `TST` content.
+Use the normal PaintZ sandbox launcher with the fixture and, where appropriate, Standard Pack or a temporary official test pack.
 
-## 4. Run both smoke suites
-
-```powershell
-$fixture = "$env:LOCALAPPDATA\PaintZSandbox\@PaintZ-PaintPackApiFixture"
-
-pwsh -File .\tools\sandbox\Start-PaintZSandbox.ps1 `
-  -Build `
-  -RunSmokeTests `
-  -AdditionalMods $fixture
-```
-
-Do not use `-ServerOnly` for the full acceptance run because both suites include player/connect-time checks.
-
-Search the server/client RPT and script logs for:
+Search server/client logs for:
 
 ```text
 [PaintZ][Smoke]
@@ -81,101 +53,124 @@ SCRIPT (E)
 SCRIPT (W)
 ```
 
-## 5. Expected registry results
+There must be no unexpected PaintZ `FAIL` or PaintZ-caused VM/config exception.
 
-The fixture must produce these effective results independent of load order:
+## 5. Namespace and collision expectations
+
+The runtime must produce deterministic results independent of mod load order.
+
+Required behavior:
 
 ```text
-TST              active
-TST-S-RED        active
-TST-C-PAT        active
-TST-S-BAD        rejected: owner mismatch
-TST-S-DUP        rejected: duplicate full finish ID
-DUP              disabled: two namespace owners
-DUP-S-RED        unavailable because DUP is conflicted
-PZA              rejected: reserved PZ* namespace used as third party
-AP2              rejected: unsupported API version
+PZ               active, owned by PZ_PaintZOfficial from PaintZ core
+TST              active when exactly one valid fixture owner exists
+DUP              disabled when two owner declarations claim it
+PZA              rejected when a third-party declaration attempts to claim reserved PZ*
+unsupported API  rejected
+owner mismatch    finish rejected
+duplicate ID      duplicated finish rejected
 ```
 
-Warnings for the deliberately invalid fixture entries are expected. They are successful test evidence, not acceptance failures.
+There must be no first-loaded-wins or last-loaded-wins overwrite behavior.
 
-There must be no first-loaded-wins or last-loaded-wins behavior.
+An external content pack that attempts to redeclare `PZ` must collide with the core owner and must not become an alternate owner.
 
-## 6. Expected action/state results
+## 6. Official-pack independence
 
-The Pack API fixture must report no `FAIL` lines and must prove at least:
+Validate at least one official content pack generated with PackKit `--official`.
 
-- `PaintZ_TestSprayCan_RED` resolves `paintzFinish = "TST-S-RED"`;
-- the single generic `ActionPaintZPaint` accepts the external-pack can;
-- painting stores `TST-S-RED` as logical state;
-- the explicitly registered external surface is applied;
-- paint quantity uses current size-based action tuning;
-- Strip Paint removes the external finish and uses current size-based stripper tuning;
-- painting sets the synchronized PaintZ-state marker and stripping clears it;
-- an unresolved historical ID keeps logical state but produces network hash `0`;
-- unresolved state with a recoverable selection remains strippable;
-- unresolved state with no recoverable paint selection still remains strippable through the synchronized state marker.
+Its generated config must:
 
-The legacy smoke suite must also have no `[PaintZ][Smoke] FAIL` lines, proving that the temporary built-in `PZ` bridge still supports current PaintZ behavior while migration is in progress.
+- omit `CfgPaintZPacks`;
+- require `PaintZ_DynamicPaint`;
+- register every finish against `PZ_PaintZOfficial`;
+- use unique local config-child names;
+- contain no dependency on Standard Pack or another official content pack.
 
-## 7. Expected network safety
+Run three combinations where practical:
+
+```text
+PaintZ only
+PaintZ + official test pack
+PaintZ + Standard Pack + official test pack
+```
+
+Acceptance:
+
+- PaintZ starts without Standard Pack;
+- the official test pack works without Standard Pack;
+- multiple official peer packs can contribute distinct `PZ-*` finishes simultaneously;
+- a deliberate duplicate complete `PZ-*` ID is rejected without disabling unrelated unique finishes;
+- no official content pack redeclares `PZ`.
+
+## 7. Generic action/state results
+
+The Pack API fixture must prove at least:
+
+- an external spray can resolves its `paintzFinish` through the registry;
+- the single generic `ActionPaintZPaint` accepts external-pack cans;
+- painting stores the complete logical finish ID;
+- explicitly registered runtime surfaces are applied;
+- paint quantity uses current size-based tuning;
+- Strip Paint removes external/official finishes through the same generic path;
+- painting sets synchronized PaintZ state and stripping clears it;
+- unresolved historical IDs retain logical state and remain strippable.
+
+Official and third-party finishes must use the same generic runtime path after registry resolution.
+
+## 8. Network safety
 
 A registered finish may synchronize only when its finish-ID hash is unique among all valid registered finishes.
 
-An unresolved finish must synchronize:
+An unresolved finish must not synchronize an arbitrary raw hash that could accidentally resolve to an unrelated active finish. Historical PaintZ-state presence must remain representable so stripping remains possible.
 
-```text
-hasState = true
-finish hash = 0
-selection = resolved selection or -1
-```
+A stripped/unpainted item must synchronize an unpainted state with no active finish resolution.
 
-It must never synchronize the unresolved string's raw hash. This prevents an unavailable historical ID from accidentally resolving to an unrelated active finish whose hash happens to collide.
+## 9. Manual visual checks
 
-A stripped/unpainted item must synchronize:
+Verify at least:
 
-```text
-hasState = false
-finish hash = 0
-selection = -1
-```
+1. one official `PZ-*` can paints a supported target;
+2. one third-party test can paints through the same generic action;
+3. patterned content resolves only explicitly registered scale variants;
+4. Paint Stripper restores original appearance for official and third-party finishes;
+5. unsupported/relevant-target feedback remains governed by current PaintZ policy/model-safety behavior.
 
-## 8. Manual visual checks
+## 10. Persistence / missing-pack tests
 
-During the client run verify:
+Before calling missing-pack persistence release-tested, use a disposable persistent server:
 
-1. one current built-in `PZ-*` can still offers Paint and applies its expected finish;
-2. `PaintZ_TestSprayCan_RED` offers the same generic Paint action and paints a supported M4 red;
-3. the test can does not need its own Enforce action subclass;
-4. Paint Stripper restores the original target appearance for both built-in and test-pack paint;
-5. unsupported/relevant-target feedback remains unchanged from current PaintZ policy behavior.
-
-## 9. Persistence tests not provided by the no-hive sandbox
-
-The safe sandbox intentionally does not start Central Economy/Hive persistence. Its serializer smoke tests and synthetic unresolved-state checks validate the code path, but they do not replace a real persisted-server restart test.
-
-Before a public Paint Pack API release, also test on a disposable persistent server:
-
-1. install PaintZ plus an API-v1 paint pack;
+1. load PaintZ plus an official or third-party API-v1 content pack;
 2. paint items in player inventory, nested storage and vehicle cargo;
 3. restart and verify the registered finish restores;
-4. stop the server and remove only the paint pack;
-5. restart and verify the underlying items load with original/default appearance while PaintZ state remains strippable;
-6. restore the same pack and restart;
+4. remove only the content pack while retaining PaintZ + CF;
+5. restart and verify underlying items load, unresolved logical IDs remain stored and stripping remains available;
+6. restore the same content pack and restart;
 7. verify the original finish ID resolves again on items that were not stripped;
 8. verify stripped items remain stripped.
 
-This persistent-server test is mandatory before calling missing-pack persistence release-tested.
+For official `PZ-*` finishes, removing Standard/Military/etc. must not remove the `PZ` namespace itself because the namespace belongs to PaintZ core.
 
-## 10. Acceptance decision
+## 11. Catalogue-move persistence check
 
-The runtime-registry branch is ready for integration review only when:
+To validate official package reorganization:
 
-- PaintZ builds and loads in DayZDiag without PaintZ script/config errors;
-- the legacy smoke suite reports no failures;
-- the Paint Pack API fixture reports no failures;
-- expected invalid fixture registrations are rejected exactly as documented;
-- manual built-in and external-can paint/strip checks pass;
-- any remaining untested persistent-server cases are explicitly recorded rather than implied to have passed.
+1. persist an item with a test `PZ-*` finish from official pack A;
+2. remove that finish registration from pack A;
+3. add the unchanged complete finish ID to official pack B;
+4. load PaintZ + pack B;
+5. verify the persisted finish resolves without migration/alias data.
 
-The later Standard Pack migration must remove the legacy owner/catalogue bridge and repeat the relevant acceptance checks with Standard Pack as the real `PZ` namespace owner.
+The content-pack boundary must have no effect on canonical identity.
+
+## Acceptance decision
+
+The runtime is ready for integration review only when:
+
+- PaintZ builds/loads with `PZ_PaintZOfficial` as the one official owner;
+- PaintZ works with no official content pack installed;
+- official PackKit output contributes to `PZ` without declaring an owner or requiring another official pack;
+- third-party owner/satellite behavior remains valid;
+- collision handling remains deterministic;
+- generic paint/strip and synchronization behavior pass;
+- persistence/missing-pack cases are either tested or explicitly recorded as still requiring live-server verification.

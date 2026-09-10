@@ -1,23 +1,23 @@
 # Paint Pack API v1 - DayZ config representation
 
-This document defines the concrete DayZ config representation consumed by the current PaintZ API-v1 runtime registry. The higher-level identity/collision/persistence rules remain authoritative in `PAINT_PACK_API.md`.
+This document defines the concrete DayZ config representation consumed by the current PaintZ API-v1 runtime registry. Higher-level identity/collision/persistence semantics remain authoritative in `PAINT_PACK_API.md`.
 
 ## Discovery roots
 
-PaintZ exposes two config roots:
+PaintZ exposes:
 
 ```cpp
 class CfgPaintZPacks {};
 class CfgPaintZFinishes {};
 ```
 
-Paint packs add child classes to these roots. PaintZ enumerates both trees at runtime.
+PaintZ core contributes the canonical official `PZ` namespace owner under `CfgPaintZPacks`. Third-party owner packs add their own non-reserved owner classes there. Content packs add finish classes under `CfgPaintZFinishes`.
 
-Config child class names are **not** persisted PaintZ identities. They are DayZ config keys only. Authors/PackKit should nevertheless generate distinctive class names because two add-ons defining the same config child class can be merged by the engine before PaintZ sees the tree.
+Config child class names are DayZ config keys, not persisted PaintZ identities. Keep them distinctive because DayZ merges config trees before PaintZ enumerates them.
 
 ## Runtime dependency
 
-A normal pack depends on PaintZ through ordinary DayZ add-on dependency ordering. Its `CfgPatches` should require PaintZ's runtime patch before inheriting the can base or registering content:
+Every normal content pack depends on PaintZ through ordinary DayZ add-on ordering:
 
 ```cpp
 class CfgPatches
@@ -35,11 +35,43 @@ class CfgPatches
 };
 ```
 
-PaintZ core must never require a paint pack in the opposite direction.
+PaintZ must never require a content pack in the opposite direction.
 
-## Namespace-owner declaration
+Independent official `PZ` packs also require only `PaintZ_DynamicPaint`; they do not require Standard Pack or another official content pack.
 
-A normal pack declares its namespace exactly once:
+## PaintZ core's official namespace owner
+
+PaintZ core declares:
+
+```cpp
+class CfgPaintZPacks
+{
+    class PZ_PaintZOfficial
+    {
+        apiVersion = 1;
+        prefix = "PZ";
+        displayName = "PaintZ Official";
+        official = 1;
+    };
+};
+```
+
+`PZ_PaintZOfficial` is the canonical API-v1 owner linkage key for official `PZ-*` finishes. It is not a persisted finish identity and does not mean PaintZ core owns finish assets.
+
+Official content packs **must not** emit another `CfgPaintZPacks` declaration for `PZ`.
+
+The runtime does not treat `official = 1` as general permission to claim a reserved prefix. For API v1 a reserved-prefix owner is accepted only when it exactly matches an assigned core owner. Currently the only accepted reserved owner is:
+
+```text
+prefix = PZ
+owner class = PZ_PaintZOfficial
+```
+
+Legacy `PZ` owner classes and all currently unassigned `PZ?` owner declarations are rejected before ordinary namespace-collision resolution. Additional reserved namespaces require a future explicit assignment in PaintZ runtime.
+
+## Third-party namespace-owner declaration
+
+A normal third-party standalone pack declares its namespace once:
 
 ```cpp
 class CfgPaintZPacks
@@ -55,43 +87,24 @@ class CfgPaintZPacks
 
 Required fields:
 
-- `apiVersion` - must currently be `1`;
-- `prefix` - the permanent 2-3 character public namespace.
+- `apiVersion` - currently `1`;
+- `prefix` - permanent 2-3 character public namespace.
 
 Optional metadata:
 
-- `displayName` - human-readable pack name.
+- `displayName` - human-readable pack/family name.
 
-The child class name, here `NCP_NetcopMilitaryPaints`, is the runtime owner key referenced by that pack's finish declarations. It is not user-facing and is not persisted. PackKit should generate a deterministic, distinctive owner class name for the pack.
+The owner child classname is config linkage only. It is not user-facing and is not persisted.
 
-For an official reserved `PZ*` namespace, the declaration additionally uses:
+A third-party multi-PBO family declares the namespace in one owner/core PBO. Satellite PBOs reference that owner and depend on its `CfgPatches` classname.
 
-```cpp
-official = 1;
-```
-
-This flag is an interoperability gate, not cryptographic authentication. Ordinary third-party packs must not set it and must not claim `PZ*`.
-
-The official PaintZ Standard Pack owns `PZ` through this same mechanism:
-
-```cpp
-class CfgPaintZPacks
-{
-    class PZ_PaintZStandardPack
-    {
-        apiVersion = 1;
-        prefix = "PZ";
-        displayName = "PaintZ Standard Pack";
-        official = 1;
-    };
-};
-```
-
-A multi-PBO pack family declares the namespace in only one owner/core PBO. Satellite PBOs depend on that PBO through normal `CfgPatches.requiredAddons[]` and reference that same owner class from their finish declarations without another owner declaration.
+Third-party packs must not set `official = 1` and must not claim `PZ*`.
 
 ## Finish declaration
 
-Each finish is a child of `CfgPaintZFinishes` and explicitly names its namespace owner:
+Each finish is a child of `CfgPaintZFinishes` and explicitly names its namespace owner.
+
+Third-party example:
 
 ```cpp
 class CfgPaintZFinishes
@@ -116,34 +129,60 @@ class CfgPaintZFinishes
                 scalePercent = 100;
                 texture = "NCP_Military\\data\\surfaces\\ncp_c_ftn_co.paa";
             };
-            class S150
+        };
+    };
+};
+```
+
+Independent official-pack example:
+
+```cpp
+class CfgPaintZFinishes
+{
+    class PZ_Military_C_FTN
+    {
+        id = "PZ-C-FTN";
+        owner = "PZ_PaintZOfficial";
+        displayName = "Flecktarn";
+        type = "camo";
+        isPattern = 1;
+
+        class Surfaces
+        {
+            class S100
             {
-                scalePercent = 150;
-                texture = "NCP_Military\\data\\surfaces\\ncp_c_ftn_s150_co.paa";
+                scalePercent = 100;
+                texture = "PaintZ_Military_Pack\\data\\surfaces\\pz_c_ftn_co.paa";
             };
         };
     };
 };
 ```
 
-Required fields:
+The official pack's local finish config classname should be distinctive to that pack. Only the `owner` linkage is shared.
 
-- `id` - complete canonical finish ID `<PREFIX>-<TYPE>-<SUFFIX>`;
-- `owner` - exact `CfgPaintZPacks` child class that owns the ID prefix;
+Required finish fields:
+
+- `id` - complete canonical `<PREFIX>-<TYPE>-<SUFFIX>` identity;
+- `owner` - exact active `CfgPaintZPacks` owner child classname;
 - `displayName` - human-readable finish name;
-- `type` - type name corresponding to the ID type letter;
-- `isPattern` - `1` for a scale-selectable pattern/camouflage finish, otherwise `0`/omitted;
-- `Surfaces` - one or more explicitly declared runtime surface assets.
+- `type` - type name matching the ID type letter;
+- `isPattern` - `1` for scale-selectable pattern/camouflage finishes, otherwise omitted/0;
+- `Surfaces` - one or more explicitly declared runtime surfaces.
 
-PaintZ accepts a finish only when the prefix extracted from `id` resolves to one active namespace owner and the finish's `owner` field matches that owner's config child class exactly. This owner key is deliberately not another public/canonical ID and is not a security credential; it is config-level linkage that prevents an unrelated declaration from accidentally contributing finishes to some other active namespace.
+For every official API-v1 `PZ-*` finish:
 
-Every finish must declare a `scalePercent = 100` surface. A non-pattern finish must currently declare only the 100% surface. A pattern may declare any subset of valid whole percentages from 1 through 1000; PaintZ selects only variants actually declared by that finish and falls back to 100% when a configured scale is unavailable.
+```text
+owner = "PZ_PaintZOfficial"
+```
 
-The runtime does not construct paint-pack texture paths from the finish ID.
+Every finish must expose a 100% surface. Non-pattern finishes currently expose only 100%. Patterns may expose any valid whole-percentage subset from 1 through 1000; PaintZ chooses only variants actually registered and falls back to 100% when the requested scale is absent.
 
-### Type names
+PaintZ never constructs a third-party texture path from the finish ID.
 
-The current mapping is:
+## Type names
+
+Current integrated mapping:
 
 ```text
 S -> solid
@@ -157,11 +196,11 @@ X -> special or custom
 T -> transparent or tint
 ```
 
-The `type` string and ID type letter must agree. PackKit should emit one canonical spelling per type even though the runtime accepts the documented synonyms for interoperability.
+The type string and ID type letter must agree. PackKit should emit one canonical spelling per type even where runtime accepts a documented synonym.
 
 ## Spray-can class
 
-PaintZ owns the common non-spawnable `PaintZ_SprayCanBase`. A pack provides one thin spawnable subclass per finish:
+PaintZ owns the non-spawnable `PaintZ_SprayCanBase`. A content pack supplies one thin spawnable subclass per finish:
 
 ```cpp
 class CfgVehicles
@@ -178,57 +217,104 @@ class CfgVehicles
 };
 ```
 
-`paintzFinish` is the API-v1 property and should be used by all API-v1 packs.
+The can does not define its own action class. `PaintZ_SprayCanBase` attaches the generic PaintZ action, which resolves behavior through `paintzFinish` and the runtime registry.
 
-The can does not define its own action class. `PaintZ_SprayCanBase` attaches the single generic PaintZ paint action, which resolves the finish from `paintzFinish` and the runtime registry.
+When moving a released official finish between official content packs, preserve its complete `PZ-*` ID and existing can classname where practical.
 
-The Standard Pack intentionally preserves the historical official `PaintZ_SprayCan_*` classnames while moving ownership of those classes out of PaintZ core. Classname compatibility is independent from finish identity.
+## Official pack independence
+
+A normal official content pack generated for `PZ` has this shape:
+
+```text
+CfgPatches
+  requiredAddons[] = { "PaintZ_DynamicPaint" }
+
+(no CfgPaintZPacks declaration)
+
+CfgPaintZFinishes
+  each finish owner = "PZ_PaintZOfficial"
+
+CfgVehicles
+  thin spray-can subclasses
+```
+
+Valid peer packages include:
+
+```text
+PaintZ Standard Pack -> PaintZ
+PaintZ Pastel Pack   -> PaintZ
+PaintZ Military Pack -> PaintZ
+PaintZ Hunting Pack  -> PaintZ
+```
+
+No dependency from Pastel/Military/Hunting to Standard is required, nor between other official content packs.
+
+## Third-party satellite packs
+
+Satellite mode remains available for a third-party multi-PBO family whose namespace owner is itself external.
+
+A satellite:
+
+- emits no `CfgPaintZPacks`;
+- references its family's existing owner class;
+- requires `PaintZ_DynamicPaint` plus the owner/core `CfgPatches` class;
+- owns its own textures and thin spray-can classes.
+
+Do not use this owner/satellite dependency pattern for normal official `PZ` collections. PaintZ core is already their stable owner dependency.
 
 ## Runtime validation order
 
-PaintZ performs two logical phases:
+PaintZ performs two phases:
 
-1. enumerate and validate all namespace-owner declarations;
-2. enumerate finish declarations only after namespace status is known.
+1. discover and validate namespace owners;
+2. validate/register finish declarations after namespace status is known.
 
-For namespace owners:
+Reserved `PZ*` owner candidates are checked against core assignments first. Currently only `PZ_PaintZOfficial` / `PZ` is valid. Other reserved owner declarations are rejected.
 
-- one valid declaration for a prefix -> namespace is active;
-- multiple valid declarations for the same prefix -> entire namespace is conflicted and disabled;
-- invalid or unsupported declarations do not acquire a namespace.
+For ordinary non-reserved namespace owners:
+
+- one valid owner -> namespace active;
+- multiple valid owners -> namespace conflicted and disabled;
+- invalid/unsupported declarations acquire no namespace.
 
 For finishes:
 
-- the ID must be valid and its prefix must belong to an active namespace;
-- `owner` must match that namespace's active owner config class;
-- metadata/type and all surface declarations must validate;
+- ID syntax/prefix must be valid;
+- prefix must resolve to an active namespace;
+- `owner` must exactly match the active owner class;
+- metadata/type/surfaces must validate;
 - duplicate complete finish IDs are disabled rather than overwritten;
-- PaintZ also rejects an internal network-hash collision rather than allowing ambiguous client resolution.
+- internal network-hash collisions are rejected rather than allowed to resolve ambiguously.
 
 No first-loaded-wins or last-loaded-wins rule is used.
 
 ## Config-key collision limitation
 
-The Paint Pack API does not claim cryptographic authorship or hostile-mod isolation. DayZ combines config trees before PaintZ enumerates them. If two add-ons deliberately define the exact same `CfgPaintZPacks` child class, the engine may merge/override that config entry before PaintZ can distinguish the sources.
+DayZ combines config trees before PaintZ enumerates them. If two add-ons deliberately define the exact same config child class, the engine may merge/override that entry before PaintZ can distinguish the sources.
 
-Therefore owner class names should be distinctive and PackKit should generate them predictably from pack metadata, but `owner` must not be presented as a security token. Runtime namespace/finish collision handling is designed for deterministic interoperability among normally authored mods.
+Therefore third-party owner classnames and every pack's local finish config classnames should be distinctive. Owner linkage must not be presented as cryptographic security.
 
 ## Core/content separation
 
-PaintZ core defines the registry, generic can base, generic paint/strip actions, persistence, networking, model inspection, policy and pattern-scale behavior.
+PaintZ core defines:
 
-PaintZ core does **not** register an implicit `PZ` owner and does not contain an official finish catalogue, finish-specific spray cans or official finish textures.
+- runtime registry/validation;
+- `PZ_PaintZOfficial` ownership of `PZ`;
+- generic can base and paint/strip actions;
+- persistence/networking;
+- model inspection/policy;
+- pattern-scale behavior.
 
-The official `PZ` namespace is supplied by `PaintZ-Standard-Pack` through ordinary API-v1 config registration. Third-party packs use the same mechanism without `official = 1` and with their own non-reserved prefixes.
+PaintZ core does **not** contain an official finish catalogue, finish-specific spray cans, or official finish assets.
 
-A server that wants the official PaintZ finishes therefore loads:
+A server wanting official content loads PaintZ plus whichever independent official content packs it wants:
 
 ```text
-CF -> PaintZ -> PaintZ Standard Pack
+CF -> PaintZ -> { Standard, Pastel, Military, Hunting, ... }
 ```
+
+The braces describe peer optional packages, not a nested dependency chain.
 
 ## Conformance fixture
 
-`tools/sandbox/paint-pack-api-fixture` contains a non-shipping synthetic paint pack with valid and deliberately invalid registrations. It exists to exercise the actual merged DayZ config tree, including namespace conflicts, owner mismatch, reserved-prefix rejection, duplicate finish IDs, generic painting, and unresolved historical-state stripping.
-
-For the final Standard Pack cut-over procedure, see `STANDARD_PACK_CUTOVER_ACCEPTANCE.md`.
+`tools/sandbox/paint-pack-api-fixture` exercises the merged DayZ config tree, including ordinary namespace conflicts, owner mismatch, reserved-owner rejection, duplicate finish IDs, a valid finish contributed to the core-owned `PZ` namespace, generic painting, and unresolved historical-state stripping.
