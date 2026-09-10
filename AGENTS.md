@@ -2,7 +2,7 @@
 
 Before modifying, creating, deleting, renaming, generating, rebasing, or moving any repository work, you MUST read `docs/CODEX_PROJECT_RULES.md` completely and follow it together with this file.
 
-For any work involving paint packs, finish registration/identity, spray-can pack integration, PackKit output, namespace handling, or cross-repository interoperability, you MUST also read and follow `docs/PAINT_PACK_API.md`. That file is the authoritative interoperability contract for PaintZ, PaintZ-PackKit, and PaintZ-Standard-Pack.
+For any work involving paint packs, finish registration/identity, spray-can pack integration, PackKit output, namespace handling, or cross-repository interoperability, you MUST also read and follow `docs/PAINT_PACK_API.md`. That file is the authoritative interoperability contract for PaintZ, PaintZ-PackKit, and all PaintZ content packs.
 
 When the work touches the concrete DayZ config representation, runtime registry/discovery, generated pack config, thin can classes, finish surfaces, or conformance tests, you MUST also read `docs/PAINT_PACK_CONFIG_V1.md`. It defines the current API-v1 config representation and must remain consistent with the higher-level `docs/PAINT_PACK_API.md` contract.
 
@@ -34,6 +34,16 @@ When the implementation is complete, leave it on its work branch and report the 
 Do not infer merge permission from phrases such as "implement this", "fix this", "do it", "finish it", "make it work", or from successful tests. Only an explicit merge/integration approval authorizes integration.
 
 If branch intent or approval status is ambiguous, preserve separation: create/use a work branch and do not merge.
+
+## Documentation progression
+
+Documentation must progress in parallel with implementation. A feature, fix, configuration change, tooling change, workflow change, architecture change, persistence change, API/contract change, or user-/administrator-visible behavior change must update the relevant README/docs/config help on the same work branch before that work is considered complete.
+
+Merge implementation and its documentation together. Do not knowingly merge code first and leave documentation describing an older behavior, configuration schema, architecture, or project state for a later cleanup branch.
+
+Where a change spans PaintZ and one or more content/tooling repositories, update the authoritative documentation in the repository that owns the contract and the repository-specific documentation affected by the change as part of the same coordinated work.
+
+A purely internal refactor with no user-, administrator-, contributor-, build-, persistence-, configuration-, or API-visible effect may require no documentation edit, but that must be a deliberate no-documentation-impact determination rather than an omission.
 
 ## Shared infrastructure must live on the dependency base
 
