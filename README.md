@@ -19,7 +19,7 @@ Examples:
 ```text
 PZ-B-BLK
 PZ-C-FTN
-PZ-S-FDE
+NCP-S-FDE
 NCP-C-FTN
 ```
 
@@ -35,13 +35,14 @@ PZ_PaintZOfficial
 
 Official content packs do not declare `PZ`. They register unique `PZ-*` finishes against the core owner and each depends directly on PaintZ.
 
-This permits independent peer packages such as:
+Current/planned peer collections include:
 
 ```text
 PaintZ Standard Pack -> PaintZ
+PaintZ Field Pack    -> PaintZ
+PaintZ Vanilla Pack  -> PaintZ
+PaintZ Hunter Pack   -> PaintZ
 PaintZ Pastel Pack   -> PaintZ
-PaintZ Military Pack -> PaintZ
-PaintZ Hunting Pack  -> PaintZ
 ```
 
 No official content pack is a parent/base dependency for another. Package/category names are distribution concerns, not canonical finish namespaces. Moving an unchanged official finish between official packs is persistence-safe when its complete `PZ-*` ID remains unchanged.
@@ -88,6 +89,8 @@ Resolution order is:
 Migration destinations must be currently registered. Migration chains and wildcards are rejected. A matching migration that cannot be completed preserves the stale state rather than falling through to pruning.
 
 The config uses the same last-known-good runtime reload model as other PaintZ server JSON files. A successful reload makes the new policy effective on each item's next relevant encounter; it does not immediately mutate all loaded items.
+
+The September 2026 Standard/Field reorganization uses this mechanism for the explicitly retired Solid-to-Basic identities (`PZ-S-RGR/FDE/FGY/UGY/BLK/WHT`) when a server administrator chooses to migrate historical persisted state to the approved `PZ-B-*` replacements. The pack split itself does not silently activate those mappings.
 
 See `config/paintz_stale_finishes_README.txt` and `docs/STALE_FINISH_RECOVERY.md`.
 
@@ -192,9 +195,9 @@ PaintZ core contains:
 - synchronization/persistence and stale-finish recovery;
 - pattern scaling and action tuning.
 
-PaintZ core deliberately contains no official finish catalogue, finish-specific spray cans, finish textures/assets, or per-finish actions.
+PaintZ core deliberately contains no official finish catalogue, finish-specific spray cans, finish textures/assets, or per-finish actions. The obsolete in-core `paintzgen` authoring/generation implementation has been removed; finish generation belongs to PaintZ-PackKit and the individual content-pack repositories.
 
-Official content lives in independent content-pack repositories such as `netcopdev/PaintZ-Standard-Pack`; future official Standard/Pastel/Military/Hunting collections may all contribute to the same core-owned `PZ` namespace without depending on one another.
+Official content lives in independent content-pack repositories such as `netcopdev/PaintZ-Standard-Pack`, `netcopdev/PaintZ-Field-Pack`, and `netcopdev/PaintZ-Vanilla-Pack`. Standard/Field/Vanilla/Hunter/Pastel collections may all contribute to the same core-owned `PZ` namespace without depending on one another.
 
 Third-party authors can build conforming packs using `netcopdev/PaintZ-PackKit` or implement the documented config contract manually. PackKit is an offline authoring/generation tool and is never a runtime dependency.
 
