@@ -1,5 +1,47 @@
 # PaintZ build tools
 
+## One-time workstation configuration
+
+Signed PaintZ builds use one machine-local PowerShell data file shared by PaintZ core and official PaintZ content-pack builders.
+
+Default location:
+
+```text
+%LOCALAPPDATA%\PaintZ\build.psd1
+```
+
+The real file lives outside every repository and must not be committed. Start from `tools\build-config.example.psd1` and fill in at least `PrivateKey` and `PublicKey`. Optional entries can pin DayZ Tools executables, Python, or a nonstandard PackKit checkout.
+
+Resolution order is:
+
+1. an explicit command-line parameter;
+2. the config selected by `-BuildConfig`;
+3. the config selected by the `PAINTZ_BUILD_CONFIG` environment variable;
+4. `%LOCALAPPDATA%\PaintZ\build.psd1`;
+5. built-in tool auto-discovery where supported.
+
+Signing never silently falls back to an unsigned release. If the private/public key paths cannot be resolved, the build fails before packaging a deployable release.
+
+Example first-time setup:
+
+```powershell
+New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\PaintZ" | Out-Null
+Copy-Item .\tools\build-config.example.psd1 "$env:LOCALAPPDATA\PaintZ\build.psd1"
+micro "$env:LOCALAPPDATA\PaintZ\build.psd1"
+```
+
+A different local config can be selected without changing repository files:
+
+```powershell
+$env:PAINTZ_BUILD_CONFIG = 'D:\private\paintz-build.psd1'
+```
+
+or per invocation:
+
+```powershell
+pwsh -File .\tools\build.ps1 -BuildConfig 'D:\private\paintz-build.psd1'
+```
+
 ## Normal build
 
 Use:
@@ -30,22 +72,13 @@ dist/release/@PaintZ/
   mod.cpp
 ```
 
-By default the signing key pair is resolved as:
-
-```text
-E:\DayZServer\keys\PaintZ.biprivatekey
-E:\DayZServer\keys\PaintZ.bikey
-```
-
-Override with `-PrivateKey` and `-PublicKey`, or change `-KeyDir` / `-KeyName`.
-
 The public `.bikey` inside the mod release is for distribution. A signature-verifying dedicated server must also have that public key in its server-root `keys` directory.
 
 ## Raw PBO helper
 
 `tools\build-pbo.ps1` is the internal/raw packaging helper. It creates `PaintZ.pbo` but does not sign or assemble a deployable mod folder. Use it only for tooling such as the isolated sandbox or diagnostics that explicitly do not need a release package.
 
-`tools\build-release.ps1` is retained as a compatibility wrapper and delegates to the canonical `build.ps1` release build.
+`tools\build-release.ps1` is retained as a compatibility wrapper and delegates to the canonical `build.ps1` release build, including the same external build-config resolution.
 
 PaintZ core owns no finish textures. Finish assets are generated and built by content packs such as PaintZ-Standard-Pack. The legacy `-ImageToPAA` and `-SkipPaintZGen` parameters are retained only for compatibility and are not needed for a normal PaintZ core build.
 
