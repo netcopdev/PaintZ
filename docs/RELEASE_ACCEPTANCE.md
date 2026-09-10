@@ -38,6 +38,17 @@ A release is accepted only when all mandatory checks pass.
 - [ ] No per-class compatibility registry or painted subclasses exist.
 - [ ] Stale-finish migration/pruning uses the same shared `ItemBase` logical state and introduces no per-category persistence path.
 
+## Painted item presentation
+
+- [ ] A painted vanilla weapon shows ` [finish name]` after its normal display name and a `Finish: name (ID)` line in its tooltip/description.
+- [ ] A painted magazine and at least one non-weapon/non-magazine `ItemBase` target receive the same presentation through the shared path.
+- [ ] A weapon/subclass `NameOverride` that returns its own dynamic name without calling `super.NameOverride()` is still decorated by PaintZ through `GetDisplayName()`.
+- [ ] A weapon/subclass `DescriptionOverride` that returns its own dynamic description without calling `super.DescriptionOverride()` is still decorated by PaintZ through `GetTooltip()`.
+- [ ] Upstream dynamic names/descriptions remain intact before PaintZ adds finish information.
+- [ ] A client can resolve presentation from synchronized PaintZ state even if a subclass swallows `OnVariablesSynchronized()` instead of calling `super`.
+- [ ] Stripping removes only the PaintZ finish presentation and restores the normal upstream name/description behavior.
+- [ ] PaintZ does not add weapon/classname-specific presentation patches.
+
 ## Runtime policy
 
 - [ ] Missing runtime JSON is created from the bundled default; existing admin files are not overwritten.
@@ -104,4 +115,4 @@ A release is accepted only when all mandatory checks pass.
 - [ ] Ruined cans and ruined targets cannot receive new paint.
 - [ ] Stale migration still requires a safe paintable selection and never guesses a protected/ambiguous surface.
 
-`tools/sandbox/PaintZ_FinishSmokeTest.c` and the Paint Pack API fixture remain opt-in smoke tests. Multiplayer UI/visual replication, stale migration/prune persistence, and persistence restart scenarios require live-server acceptance testing.
+`tools/sandbox/PaintZ_FinishSmokeTest.c` and the Paint Pack API fixture remain opt-in smoke tests. Multiplayer UI/visual replication, painted-item presentation interoperability, stale migration/prune persistence, and persistence restart scenarios require live-server acceptance testing.
