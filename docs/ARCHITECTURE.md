@@ -32,7 +32,7 @@ API v1 uses one short canonical finish identity:
 <PREFIX>-<TYPE>-<SUFFIX>
 ```
 
-Examples include `PZ-B-BLK`, `PZ-C-FTN`, `PZ-S-FDE` and third-party IDs such as `NCP-C-FTN`.
+Examples include `PZ-B-BLK`, `PZ-C-FTN`, and third-party IDs such as `NCP-S-FDE` or `NCP-C-FTN`.
 
 PaintZ exposes `CfgPaintZPacks` and `CfgPaintZFinishes`. Initialization is two-phase:
 
@@ -67,9 +67,10 @@ The intended package model is:
 CF
 └── PaintZ                 owns PZ namespace
     ├── Standard Pack      contributes PZ-* finishes
-    ├── Pastel Pack        contributes PZ-* finishes
-    ├── Military Pack      contributes PZ-* finishes
-    └── Hunting Pack       contributes PZ-* finishes
+    ├── Field Pack         contributes PZ-* finishes
+    ├── Vanilla Pack       contributes PZ-* finishes
+    ├── Hunter Pack        contributes PZ-* finishes
+    └── Pastel Pack        contributes PZ-* finishes
 ```
 
 The content packs above are peers. The diagram does not imply that PaintZ requires them; each content pack requires PaintZ.
@@ -119,7 +120,9 @@ Unknown/unregistered finish IDs are valid historical state and are preserved by 
 
 An administrator may explicitly configure stale-state recovery. Exact migration replaces an unregistered historical ID with a currently registered destination through the same `ItemBase` state path. `prune_unknown` may clear an otherwise-unmapped stale assignment. These operations are explicit persistence repair, not implicit consequences of a pack being absent or a target being excluded by policy.
 
-This directly supports official catalogue reorganization without recovery when IDs stay unchanged. If `PZ-C-FTN` moves from Standard Pack to Military Pack, its persisted identity remains `PZ-C-FTN`; only which package supplies the registration/assets changes. Stale recovery is needed only when identity itself is deliberately retired/changed or abandoned state is deliberately cleaned up.
+This directly supports official catalogue reorganization without recovery when IDs stay unchanged. For example, `PZ-C-FTN` moved from Standard Pack to Field Pack while retaining the same persisted identity; only which package supplies the registration/assets changed. Stale recovery is needed only when identity itself is deliberately retired/changed or abandoned state is deliberately cleaned up.
+
+The September 2026 Solid-to-Basic reorganization is a deliberate identity change for `PZ-S-RGR/FDE/FGY/UGY/BLK/WHT`. The approved `PZ-B-*` replacements are registered by Field/Standard, and servers with historical persisted Solid state may configure exact stale-finish mappings when they want that state migrated.
 
 Pattern scale is excluded from persistence. On post-load restoration PaintZ remeasures the target and derives the current scale before applying a registered surface. Eligibility policy is not consulted while restoring historical state.
 
@@ -224,7 +227,7 @@ PackKit --generates--> content pack
 Forbidden runtime dependencies include:
 
 ```text
-PaintZ -> Standard/Military/Pastel/Hunting pack
+PaintZ -> Standard/Field/Vanilla/Hunter/Pastel pack
 PaintZ -> PackKit
 official content pack -> another official content pack merely for PZ access
 ```
