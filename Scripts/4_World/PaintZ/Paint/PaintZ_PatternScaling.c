@@ -70,15 +70,27 @@ class PaintZ_PatternScaling
 
         maxDimensionMeters = measuredDimensionMeters;
         int desiredScalePercent = defaultScalePercent;
-        for (int i = 0; s_ActiveConfig.ranges && i < s_ActiveConfig.ranges.Count(); i++)
+        int rangeCount = 0;
+        if (s_ActiveConfig.ranges)
+            rangeCount = s_ActiveConfig.ranges.Count();
+
+        if (rangeCount > 0)
         {
-            PaintZ_PatternScaleRange range = s_ActiveConfig.ranges.Get(i);
-            if (maxDimensionMeters <= range.max_dimension_m)
+            PaintZ_PatternScaleRange finalRange = s_ActiveConfig.ranges.Get(rangeCount - 1);
+            int finalRangeScalePercent;
+            if (finalRange && NormalizeScalePercent(finalRange.scale, finalRangeScalePercent))
+                desiredScalePercent = finalRangeScalePercent;
+
+            for (int i = 0; i < rangeCount; i++)
             {
-                int rangeScalePercent;
-                if (NormalizeScalePercent(range.scale, rangeScalePercent))
-                    desiredScalePercent = rangeScalePercent;
-                break;
+                PaintZ_PatternScaleRange range = s_ActiveConfig.ranges.Get(i);
+                if (maxDimensionMeters <= range.max_dimension_m)
+                {
+                    int rangeScalePercent;
+                    if (NormalizeScalePercent(range.scale, rangeScalePercent))
+                        desiredScalePercent = rangeScalePercent;
+                    break;
+                }
             }
         }
 
