@@ -97,7 +97,7 @@ Content packs must not redeclare it.
 
 `PZ` represents the official PaintZ finish catalogue as a logical identity space. It does **not** represent one particular Workshop mod, PBO, category, or collection.
 
-Independent official PaintZ content packs may contribute unique `PZ-*` finishes while depending directly on PaintZ. Standard, Pastel, Military, Hunting, and future collections are peers; none needs another official pack merely to use `PZ`.
+Independent official PaintZ content packs may contribute unique `PZ-*` finishes while depending directly on PaintZ. Standard, Field, Vanilla, Hunter, Pastel, and future collections are peers; none needs another official pack merely to use `PZ`.
 
 Conceptually:
 
@@ -105,9 +105,10 @@ Conceptually:
 CF
 └── PaintZ  (owns PZ)
     ├── PaintZ Standard Pack   (contributes PZ-*)
-    ├── PaintZ Pastel Pack     (contributes PZ-*)
-    ├── PaintZ Military Pack   (contributes PZ-*)
-    └── PaintZ Hunting Pack    (contributes PZ-*)
+    ├── PaintZ Field Pack      (contributes PZ-*)
+    ├── PaintZ Vanilla Pack    (contributes PZ-*)
+    ├── PaintZ Hunter Pack     (contributes PZ-*)
+    └── PaintZ Pastel Pack     (contributes PZ-*)
 ```
 
 Additional `PZ?` namespaces remain reserved but unassigned. Assigning one requires an explicit future project decision and runtime-owner support. They must not be used merely to encode content categories.
@@ -128,7 +129,6 @@ Examples:
 
 ```text
 PZ-B-BLK
-PZ-S-FDE
 PZ-C-FTN
 NCP-B-ODG
 NCP-S-FDE
@@ -152,9 +152,9 @@ The PaintZ one-character type namespace is part of the ID:
 - `X` - special / custom;
 - `T` - transparent / tint.
 
-`Basic` and `Solid` are deliberately distinct. Both may represent the same nominal base color, and may share the same suffix because their complete IDs differ by type letter. For example, `PZ-B-FDE` and `PZ-S-FDE` are distinct finishes.
+`Basic` and `Solid` are deliberately distinct. Both may represent the same nominal base color, and may share the same suffix because their complete IDs differ by type letter. For example, `NCP-B-FDE` and `NCP-S-FDE` are distinct finishes.
 
-Adding a `B` counterpart must not rename, alias, or silently repurpose an existing `S` finish. Existing released `PZ-S-*` identities remain Solid identities.
+Adding a `B` counterpart must not rename, alias, or silently repurpose an existing `S` finish. Released `S` identities remain Solid identities unless an explicit breaking migration is approved. The September 2026 retirement of `PZ-S-RGR/FDE/FGY/UGY/BLK/WHT` in favor of matching `PZ-B-*` IDs is such an explicit documented exception, handled through stale-finish migration when a server chooses to apply it.
 
 ### Finish suffix
 
@@ -254,7 +254,7 @@ Conceptually, author input such as:
 ```json
 {
   "id": "BLK",
-  "name": "Basic Black",
+  "name": "Black",
   "type": "basic",
   "color": "#262827"
 }
@@ -332,6 +332,8 @@ Recovery is lazy. Loading or reloading the stale-recovery JSON does not scan the
 
 This facility is runtime persistence repair owned by PaintZ core. It does not change content-pack registration semantics, namespace ownership, or load-order collision rules.
 
+The approved September 2026 Solid-to-Basic replacement set is documented by Standard Pack. Servers with historical `PZ-S-RGR/FDE/FGY/UGY/BLK/WHT` state may configure exact mappings to the corresponding currently registered `PZ-B-*` IDs. These mappings are deliberately not automatic.
+
 ## 11. Dependency direction
 
 Normal dependency direction is:
@@ -344,9 +346,10 @@ Official content packs are peers:
 
 ```text
 PaintZ Standard Pack --depends-on--> PaintZ
+PaintZ Field Pack    --depends-on--> PaintZ
+PaintZ Vanilla Pack  --depends-on--> PaintZ
+PaintZ Hunter Pack   --depends-on--> PaintZ
 PaintZ Pastel Pack   --depends-on--> PaintZ
-PaintZ Military Pack --depends-on--> PaintZ
-PaintZ Hunting Pack  --depends-on--> PaintZ
 ```
 
 Forbidden assumptions:
@@ -378,6 +381,7 @@ PackKit must follow this contract when generating API-v1 packs. At minimum it mu
 - reject `pattern` and `appearance_profile` treatment on a Basic finish;
 - continue supporting one owner plus dependent satellites for third-party multi-PBO families;
 - generate thin finish can classes and finish-registration data;
+- preserve the shared PaintZ can-label identity/layout, including the visible top `PaintZ` logo with its distinct red `Z`;
 - keep runtime mechanics and stale-state recovery in PaintZ.
 
 PackKit does not emit or own server stale-recovery mappings. Those mappings are an administrator/runtime concern because they act on persisted server state rather than declaring content-pack identity.
@@ -394,13 +398,13 @@ Every official pack contributing to `PZ`:
 - owns only its own finish definitions/assets/can subclasses/registrations;
 - preserves released finish IDs when reorganizing catalogue contents between official packs.
 
-The PaintZ Standard Pack is the reference/conformance pack, not the owner or mandatory base pack for other official content packs. It may provide both Basic and Solid versions of a nominal color because their complete IDs and finish semantics differ.
+The PaintZ Standard Pack is the reference/conformance pack, not the owner or mandatory base pack for other official content packs. Its current catalogue is the general-purpose Basic palette. The API still permits separate Basic and Solid identities for the same nominal color where both are intentionally released, because their complete IDs and finish semantics differ.
 
 ## 14. Packaging and category rules
 
 A content-pack name or category must not be encoded into the canonical finish prefix merely because content is distributed separately.
 
-For example, Standard, Pastel, Military and Hunting may all contain `PZ-*` finishes. Type letters describe finish semantics; package names describe distribution/collection. These are independent concerns.
+For example, Standard, Field, Vanilla, Hunter and Pastel may all contain `PZ-*` finishes. Type letters describe finish semantics; package names describe distribution/collection. These are independent concerns.
 
 Avoid parent/child pack terminology in user-facing documentation. For official content, use **independent optional PaintZ content pack**. The owner/contributor distinction is an internal API detail.
 
@@ -430,7 +434,8 @@ This file in the PaintZ repository is authoritative for runtime interoperability
 
 - `netcopdev/PaintZ` owns the runtime API contract, generic runtime behavior, official `PZ` namespace identity, persistence and stale-state recovery.
 - `netcopdev/PaintZ-PackKit` must generate/validate against it.
-- `netcopdev/PaintZ-Standard-Pack` must conform to it as an independent official reference content pack.
-- future official content-pack repositories must follow the same peer dependency model.
+- `netcopdev/PaintZ-Standard-Pack` conforms as the independent official general-purpose/reference content pack.
+- `netcopdev/PaintZ-Field-Pack` and `netcopdev/PaintZ-Vanilla-Pack` conform as independent official peer content packs.
+- Hunter, Pastel, and future official content-pack repositories must follow the same peer dependency model.
 
 If repository-local documentation conflicts with this document, fix the local documentation rather than silently creating a divergent contract.
