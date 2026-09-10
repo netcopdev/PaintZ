@@ -2,14 +2,14 @@
 
 This checklist is the runtime acceptance gate for PaintZ's registry and content-pack interoperability. It does not replace `PAINT_PACK_API.md` or `PAINT_PACK_CONFIG_V1.md`.
 
-Static review alone is insufficient for integration. Enforce Script and DayZ config must ultimately be built and loaded with DayZ Tools/DayZDiag.
+Static review alone is insufficient for integration. Enforce Script and DayZ config must ultimately be built and loaded with DayZ Tools/DayZDiag or an actual server where runtime behavior changes.
 
 ## 1. Static preflight
 
 Before runtime testing verify:
 
 - PaintZ core declares exactly one official `PZ` namespace owner named `PZ_PaintZOfficial`;
-- PaintZ core contains no individual official finish catalogue/assets/cans;
+- PaintZ core contains no individual official finish catalogue/assets/cans and no legacy in-core `paintzgen` content generator;
 - an official PackKit-generated content pack emits no `CfgPaintZPacks` declaration;
 - official `PZ-*` finishes use `owner = "PZ_PaintZOfficial"`;
 - official content packs depend on `PaintZ_DynamicPaint`, not on another official content pack;
@@ -17,11 +17,13 @@ Before runtime testing verify:
 
 ## 2. Build PaintZ
 
-From the current runtime branch:
+From current PaintZ `main` or the work branch being validated:
 
 ```powershell
-pwsh -File .\tools\build.ps1 -SkipPaintZGen
+pwsh -File .\tools\build.ps1
 ```
+
+PaintZ core no longer accepts or requires the removed `-SkipPaintZGen` path; finish generation belongs to PackKit/content-pack repositories.
 
 Acceptance:
 
@@ -41,7 +43,7 @@ The fixture should contain valid third-party content plus deliberately invalid r
 
 ## 4. Run runtime/smoke tests
 
-Use the normal PaintZ sandbox launcher with the fixture and, where appropriate, Standard Pack or a temporary official test pack.
+Use the normal PaintZ sandbox launcher with the fixture and, where appropriate, one or more current official packs such as Standard, Field or Vanilla.
 
 Search server/client logs for:
 
@@ -73,11 +75,11 @@ duplicate ID      duplicated finish rejected
 
 There must be no first-loaded-wins or last-loaded-wins overwrite behavior.
 
-An external content pack that attempts to redeclare `PZ` must collide with the core owner and must not become an alternate owner.
+An external content pack that attempts to redeclare `PZ` must not become an alternate owner; noncanonical reserved ownership is rejected by the runtime contract.
 
 ## 6. Official-pack independence
 
-Validate at least one official content pack generated with PackKit `--official`.
+Validate current official content generated with PackKit `--official`.
 
 Its generated config must:
 
@@ -87,28 +89,30 @@ Its generated config must:
 - use unique local config-child names;
 - contain no dependency on Standard Pack or another official content pack.
 
-Run three combinations where practical:
+Useful combinations include:
 
 ```text
 PaintZ only
-PaintZ + official test pack
-PaintZ + Standard Pack + official test pack
+PaintZ + Standard Pack
+PaintZ + Field Pack
+PaintZ + Vanilla Pack
+PaintZ + Standard Pack + Field Pack + Vanilla Pack
 ```
 
 Acceptance:
 
-- PaintZ starts without Standard Pack;
-- the official test pack works without Standard Pack;
-- multiple official peer packs can contribute distinct `PZ-*` finishes simultaneously;
+- PaintZ starts with no official content pack;
+- each official pack works without Standard installed unless it is Standard itself;
+- multiple official peer packs contribute distinct `PZ-*` finishes simultaneously;
 - a deliberate duplicate complete `PZ-*` ID is rejected without disabling unrelated unique finishes;
 - no official content pack redeclares `PZ`.
 
 ## 7. Generic action/state results
 
-The Pack API fixture must prove at least:
+The Pack API fixture and real content packs should prove at least:
 
 - an external spray can resolves its `paintzFinish` through the registry;
-- the single generic `ActionPaintZPaint` accepts external-pack cans;
+- the single generic `ActionPaintZPaint` accepts registered external-pack cans;
 - painting stores the complete logical finish ID;
 - explicitly registered runtime surfaces are applied;
 - paint quantity uses current size-based tuning;
@@ -130,11 +134,13 @@ A stripped/unpainted item must synchronize an unpainted state with no active fin
 
 Verify at least:
 
-1. one official `PZ-*` can paints a supported target;
-2. one third-party test can paints through the same generic action;
-3. patterned content resolves only explicitly registered scale variants;
-4. Paint Stripper restores original appearance for official and third-party finishes;
-5. unsupported/relevant-target feedback remains governed by current PaintZ policy/model-safety behavior.
+1. one official `PZ-B-*` Basic can paints a supported target with its procedural color;
+2. one official patterned/camouflage can paints through the same generic action;
+3. one third-party test can paints through the same generic action;
+4. patterned content resolves only explicitly registered scale variants;
+5. Paint Stripper restores original appearance for official and third-party finishes;
+6. generated can labels include the standard visible PaintZ top logo with the distinct red `Z`;
+7. unsupported/relevant-target feedback remains governed by current PaintZ policy/model-safety behavior.
 
 ## 10. Persistence / missing-pack tests
 
@@ -149,7 +155,7 @@ Before calling missing-pack persistence release-tested, use a disposable persist
 7. verify the original finish ID resolves again on items that were not stripped;
 8. verify stripped items remain stripped.
 
-For official `PZ-*` finishes, removing Standard/Military/etc. must not remove the `PZ` namespace itself because the namespace belongs to PaintZ core.
+Removing Standard, Field, Vanilla, Hunter, Pastel, or another official content pack must not remove the `PZ` namespace itself because the namespace belongs to PaintZ core.
 
 ## 11. Catalogue-move persistence check
 
@@ -161,7 +167,21 @@ To validate official package reorganization:
 4. load PaintZ + pack B;
 5. verify the persisted finish resolves without migration/alias data.
 
-The content-pack boundary must have no effect on canonical identity.
+The completed Standard -> Field/Vanilla camouflage split follows this rule: ERDL/WDL/FTN/MCT/TGR/UCP retain their `PZ-C-*` identities in Field, while DWD retains `PZ-C-DWD` in Vanilla.
+
+## 12. Explicit stale-finish migration check
+
+Identity changes are different from packaging-only moves. For the approved September 2026 Solid-to-Basic replacements, validate when applicable:
+
+1. persist an item with one retired `PZ-S-RGR/FDE/FGY/UGY/BLK/WHT` ID using an older build/fixture;
+2. load current PaintZ and the pack that registers the approved `PZ-B-*` destination;
+3. configure an exact mapping in `$profile:PaintZ/paintz_stale_finishes.json`;
+4. encounter/load the item;
+5. verify the destination visual and logical ID apply;
+6. save/restart and verify the new ID persists;
+7. verify removing the mapping does not reverse an already completed migration.
+
+The mapping is explicit server policy, not something current Standard/Field packs activate automatically.
 
 ## Acceptance decision
 
@@ -173,4 +193,5 @@ The runtime is ready for integration review only when:
 - third-party owner/satellite behavior remains valid;
 - collision handling remains deterministic;
 - generic paint/strip and synchronization behavior pass;
-- persistence/missing-pack cases are either tested or explicitly recorded as still requiring live-server verification.
+- persistence/missing-pack/stale-migration cases are either tested or explicitly recorded as still requiring live-server verification;
+- documentation describing changed behavior/configuration is updated on the same branch as the implementation before merge.
