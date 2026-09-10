@@ -66,9 +66,9 @@ function Resolve-RequiredModDirectory {
         }
 
         $resolved = (Resolve-Path -LiteralPath $candidate).Path
-        if (-not (Test-Path -LiteralPath (Join-Path $resolved "Addons") -PathType Container)) {
+        if (-not (Test-Path -LiteralPath (Join-Path $resolved "addons") -PathType Container)) {
             if ($ExplicitPath) {
-                throw "$Description at '$resolved' has no Addons directory."
+                throw "$Description at '$resolved' has no addons directory."
             }
             continue
         }
@@ -184,7 +184,7 @@ if ($steamWindowsUser -and $steamWindowsUser -ne $currentWindowsUser) {
 $runtimeRootFull = [System.IO.Path]::GetFullPath($RuntimeRoot)
 $buildOutput = Join-Path $runtimeRootFull "build"
 $PaintZModRoot = Join-Path $runtimeRootFull "@PaintZ"
-$PaintZAddons = Join-Path $PaintZModRoot "Addons"
+$PaintZAddons = Join-Path $PaintZModRoot "addons"
 $serverProfiles = Join-Path $runtimeRootFull "server-profiles"
 $clientLogRoot = Join-Path $env:LOCALAPPDATA "DayZ"
 $serverConfig = Join-Path $runtimeRootFull "PaintZSandboxServerDZ.cfg"
@@ -225,15 +225,15 @@ Set-Content -LiteralPath $serverConfig -Value $serverConfigText -Encoding UTF8
 
 if ($buildRequested) {
     if ($Generate) {
-        Write-Host "Generating paint assets and building PaintZ..."
-        & (Join-Path $projectRoot "tools\build.ps1") -AddonBuilder $addonBuilder -ProjectRoot $projectRoot -OutputDir $buildOutput
+        Write-Warning "-Generate is retained for compatibility; PaintZ core no longer generates finish assets. Building a raw sandbox PBO."
     }
     else {
-        Write-Host "Building PaintZ from existing generated assets..."
-        & (Join-Path $projectRoot "tools\build.ps1") -AddonBuilder $addonBuilder -ProjectRoot $projectRoot -OutputDir $buildOutput -SkipPaintZGen
+        Write-Host "Building PaintZ raw sandbox PBO..."
     }
+
+    & (Join-Path $projectRoot "tools\build-pbo.ps1") -AddonBuilder $addonBuilder -ProjectRoot $projectRoot -OutputDir $buildOutput
     if ($LASTEXITCODE -ne 0) {
-        throw "PaintZ build failed with exit code $LASTEXITCODE."
+        throw "PaintZ raw PBO build failed with exit code $LASTEXITCODE."
     }
 }
 
@@ -257,7 +257,7 @@ else {
 }
 
 if (-not $sourcePbo) {
-    throw "No packaged PaintZ.pbo was found. Run again with -Build, or use -Generate after changing the paint catalogue/assets."
+    throw "No packaged PaintZ.pbo was found. Run again with -Build."
 }
 
 if ($sourcePbo.FullName -ne $runtimePbo) {
