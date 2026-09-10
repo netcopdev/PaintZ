@@ -22,7 +22,7 @@ Every normal content pack depends on PaintZ through ordinary DayZ add-on orderin
 ```cpp
 class CfgPatches
 {
-    class NCP_MilitaryPaints
+    class NCP_ExamplePaints
     {
         units[] = {"NCP_SprayCan_FTN"};
         weapons[] = {};
@@ -76,11 +76,11 @@ A normal third-party standalone pack declares its namespace once:
 ```cpp
 class CfgPaintZPacks
 {
-    class NCP_NetcopMilitaryPaints
+    class NCP_ExamplePaints
     {
         apiVersion = 1;
         prefix = "NCP";
-        displayName = "Netcop Military Paints";
+        displayName = "Netcop Example Paints";
     };
 };
 ```
@@ -112,7 +112,7 @@ class CfgPaintZFinishes
     class NCP_C_FTN
     {
         id = "NCP-C-FTN";
-        owner = "NCP_NetcopMilitaryPaints";
+        owner = "NCP_ExamplePaints";
         displayName = "Flecktarn";
         type = "camo";
         isPattern = 1;
@@ -122,12 +122,12 @@ class CfgPaintZFinishes
             class S050
             {
                 scalePercent = 50;
-                texture = "NCP_Military\\data\\surfaces\\ncp_c_ftn_s050_co.paa";
+                texture = "NCP_Example\\data\\surfaces\\ncp_c_ftn_s050_co.paa";
             };
             class S100
             {
                 scalePercent = 100;
-                texture = "NCP_Military\\data\\surfaces\\ncp_c_ftn_co.paa";
+                texture = "NCP_Example\\data\\surfaces\\ncp_c_ftn_co.paa";
             };
         };
     };
@@ -144,8 +144,8 @@ class CfgPaintZFinishes
     class NCP_B_BLK
     {
         id = "NCP-B-BLK";
-        owner = "NCP_NetcopMilitaryPaints";
-        displayName = "Basic Black";
+        owner = "NCP_ExamplePaints";
+        displayName = "Black";
         type = "basic";
 
         class Surfaces
@@ -167,7 +167,7 @@ Basic finishes are predefined registered finishes. The procedural descriptor is 
 ```cpp
 class CfgPaintZFinishes
 {
-    class PZ_Military_C_FTN
+    class PZ_Field_C_FTN
     {
         id = "PZ-C-FTN";
         owner = "PZ_PaintZOfficial";
@@ -180,7 +180,7 @@ class CfgPaintZFinishes
             class S100
             {
                 scalePercent = 100;
-                texture = "PaintZ_Military_Pack\\data\\surfaces\\pz_c_ftn_co.paa";
+                texture = "PaintZ_Field_Pack\\data\\surfaces\\pz_c_ftn_co.paa";
             };
         };
     };
@@ -251,7 +251,7 @@ class CfgVehicles
         scope = 2;
         displayName = "PaintZ - Flecktarn";
         paintzFinish = "NCP-C-FTN";
-        hiddenSelectionsTextures[] = {"NCP_Military\\data\\cans\\ncp_c_ftn_co.paa"};
+        hiddenSelectionsTextures[] = {"NCP_Example\\data\\cans\\ncp_c_ftn_co.paa"};
     };
 };
 ```
@@ -281,7 +281,7 @@ CfgVehicles
   thin spray-can subclasses
 ```
 
-Valid peer packages include Standard, Pastel, Military and Hunting. No dependency from one official content pack to another is required.
+Valid peer packages include Standard, Field, Vanilla, Hunter and Pastel. No dependency from one official content pack to another is required.
 
 ## Third-party satellite packs
 
@@ -339,14 +339,15 @@ PaintZ core defines:
 - generic can base and paint/strip actions;
 - persistence/networking;
 - model inspection/policy;
-- pattern-scale behavior.
+- pattern-scale behavior;
+- stale-finish recovery.
 
-PaintZ core does **not** contain an official Basic color catalogue, any other official finish catalogue, finish-specific spray cans, or official finish assets. Those belong in independent official content packs such as PaintZ Standard Pack.
+PaintZ core does **not** contain an official Basic color catalogue, any other official finish catalogue, finish-specific spray cans, or official finish assets. Those belong in independent official content packs.
 
 A server wanting official content loads PaintZ plus whichever independent official packs it wants:
 
 ```text
-CF -> PaintZ -> { Standard, Pastel, Military, Hunting, ... }
+CF -> PaintZ -> { Standard, Field, Vanilla, Hunter, Pastel, ... }
 ```
 
 ## Conformance fixture
