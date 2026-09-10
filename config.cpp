@@ -56,9 +56,19 @@ class CfgMods
     };
 };
 
-// Paint Pack API v1 discovery roots. Paint packs add child classes here.
+// Paint Pack API v1 discovery root.
+// PaintZ owns the official PZ namespace identity but deliberately owns no
+// individual official finishes. Independent official content packs register
+// PZ-* finishes against this owner while depending only on PaintZ.
 class CfgPaintZPacks
 {
+    class PZ_PaintZOfficial
+    {
+        apiVersion = 1;
+        prefix = "PZ";
+        displayName = "PaintZ Official";
+        official = 1;
+    };
 };
 
 class CfgPaintZFinishes
