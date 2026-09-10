@@ -173,8 +173,8 @@ if (-not $signature) {
 }
 
 $releaseModRoot = Join-Path $releaseRootFull "@PaintZ"
-$releaseAddons = Join-Path $releaseModRoot "Addons"
-$releaseKeys = Join-Path $releaseModRoot "Keys"
+$releaseAddons = Join-Path $releaseModRoot "addons"
+$releaseKeys = Join-Path $releaseModRoot "keys"
 
 if (Test-Path -LiteralPath $releaseModRoot) {
     Remove-Item -LiteralPath $releaseModRoot -Recurse -Force
@@ -209,9 +209,9 @@ Write-Host "  $releaseModRoot"
 Write-Host ("  Total size   : {0:N2} MB" -f ($releaseBytes / 1MB))
 Write-Host ""
 Write-Host "Contents:"
-Write-Host "  Addons\PaintZ.pbo"
-Write-Host "  Addons\$($signature.Name)"
-Write-Host "  Keys\$([System.IO.Path]::GetFileName($publicKeyPath))"
+Write-Host "  addons\PaintZ.pbo"
+Write-Host "  addons\$($signature.Name)"
+Write-Host "  keys\$([System.IO.Path]::GetFileName($publicKeyPath))"
 if (Test-Path -LiteralPath (Join-Path $releaseModRoot 'mod.cpp') -PathType Leaf) {
     Write-Host "  mod.cpp"
 }
