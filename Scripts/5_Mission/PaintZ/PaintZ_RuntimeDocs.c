@@ -8,6 +8,7 @@ class PaintZ_RuntimeDocs
 
         RefreshFile("PaintZ/config/paintz_items_README.txt", "$profile:PaintZ/paintz_items_README.txt", "item-policy");
         RefreshFile("PaintZ/config/paintz_pattern_scaling_README.txt", "$profile:PaintZ/paintz_pattern_scaling_README.txt", "pattern-scaling");
+        RefreshFile("PaintZ/config/paintz_stale_finishes_README.txt", "$profile:PaintZ/paintz_stale_finishes_README.txt", "stale-finishes");
         RefreshFile("PaintZ/config/paintz_action_tuning_README.txt", "$profile:PaintZ/paintz_action_tuning_README.txt", "action-tuning");
     }
 
