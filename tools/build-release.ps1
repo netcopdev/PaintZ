@@ -3,8 +3,7 @@ param(
     [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
     [string]$OutputDir = (Join-Path (Resolve-Path (Join-Path $PSScriptRoot "..")).Path "dist"),
     [string]$ReleaseRoot = (Join-Path (Resolve-Path (Join-Path $PSScriptRoot "..")).Path "dist\release"),
-    [string]$KeyDir = "E:\DayZServer\keys",
-    [string]$KeyName = "PaintZ",
+    [string]$BuildConfig,
     [string]$PrivateKey,
     [string]$PublicKey,
     [string]$AddonBuilder,
@@ -26,9 +25,8 @@ $buildArgs = @{
     ProjectRoot = $ProjectRoot
     OutputDir = $OutputDir
     ReleaseRoot = $ReleaseRoot
-    KeyDir = $KeyDir
-    KeyName = $KeyName
 }
+if ($BuildConfig) { $buildArgs.BuildConfig = $BuildConfig }
 if ($PrivateKey) { $buildArgs.PrivateKey = $PrivateKey }
 if ($PublicKey) { $buildArgs.PublicKey = $PublicKey }
 if ($AddonBuilder) { $buildArgs.AddonBuilder = $AddonBuilder }
