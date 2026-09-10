@@ -9,13 +9,6 @@ out/
 *.privatekey
 *.biprivatekey
 
-# Generated PaintZ content
-data/
-tools/paintzgen/generated/
-tools/paintzgen/SHA256SUMS.txt
-__pycache__/
-*.py[cod]
-
 # Binary artwork and fonts are distributed separately from this public source repository.
 assets/
 *.png
