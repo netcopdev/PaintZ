@@ -1,10 +1,12 @@
 # Paint Pack API v1 sandbox fixture
 
-This fixture is development/test input for the PaintZ runtime registry. It is intentionally stored under `tools/sandbox` so the normal PaintZ PBO build does not ship it.
+This fixture is development/test input for the PaintZ runtime registry. It lives under `tools/sandbox` and is not part of the normal PaintZ PBO.
 
-It exercises the merged DayZ config tree with both valid and deliberately invalid Paint Pack API declarations:
+It exercises the merged DayZ config tree with both valid and deliberately invalid declarations:
 
-- valid namespace `TST`;
+- core-owned official namespace `PZ` supplied by PaintZ itself;
+- valid synthetic official contribution `PZ-S-API` referencing `PZ_PaintZOfficial` without declaring another owner;
+- valid third-party namespace `TST`;
 - valid solid finish `TST-S-RED`;
 - valid pattern finish `TST-C-PAT` with only 50% and 100% variants;
 - owner mismatch rejection;
@@ -17,7 +19,7 @@ It exercises the merged DayZ config tree with both valid and deliberately invali
 - stripping of a registered external finish;
 - preservation and stripping of an unresolved historical finish ID.
 
-The procedural `#(argb...)color(...)` textures are deliberate. The fixture tests API behavior without introducing paint/finish artwork into the PaintZ repository.
+The procedural `#(argb...)color(...)` surfaces are deliberate. The fixture tests API behavior without introducing real finish artwork into the PaintZ repository.
 
 ## Build
 
@@ -27,7 +29,7 @@ From the PaintZ repository root:
 .\tools\sandbox\Build-PaintPackApiFixture.ps1
 ```
 
-By default this writes:
+Default output:
 
 ```text
 %LOCALAPPDATA%\PaintZSandbox\@PaintZ-PaintPackApiFixture
@@ -35,27 +37,29 @@ By default this writes:
 
 Pass `-AddonBuilderExe` if DayZ Tools is installed somewhere the helper does not detect.
 
-## Run with the existing sandbox
+## Run
 
-Build PaintZ normally, then load the fixture as an additional mod. Example:
+Build PaintZ normally, then load the fixture as an additional mod:
 
 ```powershell
 $fixture = "$env:LOCALAPPDATA\PaintZSandbox\@PaintZ-PaintPackApiFixture"
 .\tools\sandbox\Start-PaintZSandbox.ps1 -AdditionalMods $fixture
 ```
 
-The fixture runs registry checks from `MissionServer.OnInit()` and player/application checks after the test player connects. Search the script/RPT log for:
+The fixture runs registry checks from `MissionServer.OnInit()` and player/application checks after the test player connects. Search script/RPT logs for:
 
 ```text
 [PaintZ][PackAPI Smoke]
 ```
 
-Any `FAIL` line is an acceptance failure for the runtime registry branch.
+Any `FAIL` line is an acceptance failure.
 
 ## Expected registry behavior
 
+`PZ` must be active from PaintZ core and `PZ-S-API` must register even though the fixture does not declare a `PZ` owner. This specifically verifies the independent official-content model.
+
 `TST` must be active. `TST-S-RED` and `TST-C-PAT` must register. `TST-S-BAD` and `TST-S-DUP` must not register.
 
-`DUP`, `PZA`, and `AP2` must not become active namespaces. No invalid/conflicted declaration may replace another finish because of load order.
+`DUP`, `PZA`, and `AP2` must not become active namespaces. No invalid/conflicted declaration may replace another owner or finish because of load order.
 
-This fixture is not an example of how a normal paint pack should be distributed: its deliberate invalid declarations and test scripts exist only for runtime conformance testing. The normal pack shape is documented in `docs/PAINT_PACK_CONFIG_V1.md`.
+This fixture is not an example of a normal distributed paint pack: it deliberately mixes a synthetic official contribution, third-party valid content, invalid declarations, and test scripts for runtime conformance testing. Normal pack shapes are documented in `docs/PAINT_PACK_CONFIG_V1.md`.
