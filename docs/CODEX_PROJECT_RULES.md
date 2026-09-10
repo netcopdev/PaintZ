@@ -14,6 +14,12 @@ Do not put unrelated work on an existing feature/fix branch. A non-main branch b
 
 Tightly related corrections belong on the existing feature branch. New independent work normally starts from current `main` or from the feature branch it explicitly extends. `dev` is for integration testing, not normal feature development.
 
+## Documentation progression
+
+Documentation is part of the implementation, not a follow-up task. When a feature/fix changes runtime behavior, configuration, persistence, APIs, build/release workflow, supported content, or another documented contract/state, update the relevant documentation on the same branch and merge it with the implementation.
+
+A purely internal refactor with no documented external effect may require no doc edit, but that must be a deliberate determination. Do not knowingly leave README/docs/config help describing an older state after merging the change that superseded it.
+
 ---
 
 # Mission
@@ -92,7 +98,7 @@ PaintZ requires Community Framework and uses **CF ModStorage**.
 
 The production persistence hook belongs once at `ItemBase` through `CF_OnStoreSave` / `CF_OnStoreLoad`.
 
-Do not replace this with broad native `ItemBase::OnStoreSave` / `OnStoreLoad` appends. Derived DayZ classes may serialize additional data after calling `super`, so inserting PaintZ bytes at a broad native base layer can place them in the middle of subclass streams and break legacy/third-party persistence.
+Do not replace this with broad native `ItemBase::OnStoreSave` / `OnStoreLoad` appends. Derived DayZ classes may serialize additional data after calling `super`, so inserting PaintZ bytes at a broad native base layer can place them in the middle of an existing subclass stream and break legacy/third-party persistence.
 
 Do not reintroduce:
 
@@ -339,11 +345,11 @@ Do not scatter consumption magic numbers through action code; keep such design d
 
 # Finish identity and assets
 
-Paint IDs are stable developer-authored logical identifiers such as `PZ-S-WHT` or the current project convention.
+Paint IDs are stable developer-authored logical identifiers such as `PZ-C-FTN`, `PZ-B-BLK`, or a third-party `NCP-S-FDE`.
 
-IDs must be unique and should remain stable after release. Display-name/color corrections should not require changing the logical ID.
+IDs must be unique and should remain stable after release. Display-name/color corrections should not require changing the logical ID. Deliberate breaking migrations, such as the approved September 2026 retirement of six `PZ-S-*` identities in favor of `PZ-B-*` replacements, must be explicitly documented and handled through the stale-finish mechanism rather than silently repurposing IDs.
 
-Generated assets must be deterministic and reproducible. Fix generator/source data rather than hand-editing generated outputs.
+Generated assets must be deterministic and reproducible. Fix generator/source data rather than hand-editing generated outputs. Official finish/can generation belongs to PaintZ-PackKit and the content-pack repositories, not to PaintZ core.
 
 Do not add third-party textures, camouflage, logos, fonts, graphics or other assets without a license that permits intended use/redistribution.
 
@@ -413,6 +419,6 @@ Before considering work complete:
 7. exercise slot selectors with at least a loose stock/handguard, an optic, a flashlight/suppressor family, and a non-slot explicit domain such as `SmallProtectorCase`;
 8. verify an optic/light exposing only protected functional surfaces remains safely unsupported;
 9. perform live persistence/multiplayer acceptance for lifecycle changes;
-10. update `README.md`, `docs/ARCHITECTURE.md`, relevant feature docs, and release acceptance criteria when architecture changes.
+10. update all relevant documentation on the same branch whenever the change affects architecture, behavior, configuration, build/release workflow, persistence, API contracts, or documented project state.
 
 Do not claim an unrun build/test passed.
