@@ -80,7 +80,7 @@ The public `.bikey` inside the mod release is for distribution. A signature-veri
 
 `tools\build-release.ps1` is retained as a compatibility wrapper and delegates to the canonical `build.ps1` release build, including the same external build-config resolution.
 
-PaintZ core owns no finish textures. Finish assets are generated and built by content packs such as PaintZ-Standard-Pack. The legacy `-ImageToPAA` and `-SkipPaintZGen` parameters are retained only for compatibility and are not needed for a normal PaintZ core build.
+PaintZ core owns no finish catalogue or finish-generation tooling. Finish definitions, can artwork, and target-surface assets belong to content packs and are authored/generated through PaintZ-PackKit or an equivalent conforming workflow.
 
 ## Local safe sandbox
 

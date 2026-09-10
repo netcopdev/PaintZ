@@ -1,9 +1,7 @@
 param(
     [string]$AddonBuilder,
     [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
-    [string]$OutputDir = (Join-Path (Resolve-Path (Join-Path $PSScriptRoot "..")).Path "dist"),
-    [string]$ImageToPAA,
-    [switch]$SkipPaintZGen
+    [string]$OutputDir = (Join-Path (Resolve-Path (Join-Path $PSScriptRoot "..")).Path "dist")
 )
 
 Set-StrictMode -Version Latest
@@ -59,13 +57,6 @@ function Assert-RuntimeStage {
         $paths = $unexpected | ForEach-Object { $_.FullName.Substring($StageRoot.Length).TrimStart('\', '/') }
         throw "PaintZ core staging contains unexpected file(s):`n  $($paths -join "`n  ")"
     }
-}
-
-if ($ImageToPAA) {
-    Write-Warning "-ImageToPAA is ignored: PaintZ core no longer owns finish textures. Build PaintZ-Standard-Pack separately."
-}
-if ($SkipPaintZGen) {
-    Write-Warning "-SkipPaintZGen is deprecated and no longer needed: PaintZ core never generates finish assets."
 }
 
 if (-not $AddonBuilder) {
