@@ -407,6 +407,22 @@ class PaintZ_PaintPackRegistry
             return null;
         }
 
+        if (finish.m_Type == "basic")
+        {
+            if (finish.m_IsPattern)
+            {
+                PaintZ_PaintLog.Warning("paint_pack_registry finish_rejected source=" + path + " reason=basic_is_pattern id=" + finish.m_Id);
+                return null;
+            }
+
+            string basicTexture = finish.GetSurfaceTexture(100);
+            if (!IsProceduralColorTexture(basicTexture))
+            {
+                PaintZ_PaintLog.Warning("paint_pack_registry finish_rejected source=" + path + " reason=basic_surface_not_procedural_color id=" + finish.m_Id);
+                return null;
+            }
+        }
+
         return finish;
     }
 
@@ -522,11 +538,13 @@ class PaintZ_PaintPackRegistry
 
     protected static bool IsTypeCode(string typeCode)
     {
-        return typeCode == "S" || typeCode == "C" || typeCode == "P" || typeCode == "M" || typeCode == "R" || typeCode == "W" || typeCode == "F" || typeCode == "X" || typeCode == "T";
+        return typeCode == "B" || typeCode == "S" || typeCode == "C" || typeCode == "P" || typeCode == "M" || typeCode == "R" || typeCode == "W" || typeCode == "F" || typeCode == "X" || typeCode == "T";
     }
 
     protected static bool TypeMatchesCode(string typeName, string typeCode)
     {
+        if (typeCode == "B")
+            return typeName == "basic";
         if (typeCode == "S")
             return typeName == "solid";
         if (typeCode == "C")
@@ -547,6 +565,13 @@ class PaintZ_PaintPackRegistry
             return typeName == "transparent" || typeName == "tint";
 
         return false;
+    }
+
+    protected static bool IsProceduralColorTexture(string texture)
+    {
+        string normalized = texture;
+        normalized.ToLower();
+        return normalized.IndexOf("#(argb,8,8,3)color(") == 0;
     }
 
     protected static bool IsUpperLetter(string ch)

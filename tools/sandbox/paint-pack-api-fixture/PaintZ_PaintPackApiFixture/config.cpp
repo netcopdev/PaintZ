@@ -116,12 +116,13 @@ class CfgPaintZFinishes
         };
     };
 
-    class TST_S_RED
+    // Valid Basic finish: plain color only, represented procedurally.
+    class TST_B_RED
     {
-        id = "TST-S-RED";
+        id = "TST-B-RED";
         owner = "TST_ApiFixture";
-        displayName = "Fixture Red";
-        type = "solid";
+        displayName = "Fixture Basic Red";
+        type = "basic";
 
         class Surfaces
         {
@@ -129,6 +130,24 @@ class CfgPaintZFinishes
             {
                 scalePercent = 100;
                 texture = "#(argb,8,8,3)color(1,0,0,1.0,CO)";
+            };
+        };
+    };
+
+    // Deliberate invalid Basic finish: Basic must use a procedural color descriptor.
+    class TST_B_BADSURFACE
+    {
+        id = "TST-B-BAD";
+        owner = "TST_ApiFixture";
+        displayName = "Invalid Basic Surface Fixture";
+        type = "basic";
+
+        class Surfaces
+        {
+            class S100
+            {
+                scalePercent = 100;
+                texture = "PaintZ_PaintPackApiFixture\\data\\not_a_basic_surface_co.paa";
             };
         };
     };
@@ -269,9 +288,9 @@ class CfgVehicles
     class PaintZ_TestSprayCan_RED : PaintZ_SprayCanBase
     {
         scope = 2;
-        displayName = "PaintZ API Fixture Red";
-        descriptionShort = "TST-S-RED Paint Pack API fixture can";
-        paintzFinish = "TST-S-RED";
+        displayName = "PaintZ API Fixture Basic Red";
+        descriptionShort = "TST-B-RED Paint Pack API fixture can";
+        paintzFinish = "TST-B-RED";
         hiddenSelectionsTextures[] =
         {
             "#(argb,8,8,3)color(1,0,0,1.0,CO)"
