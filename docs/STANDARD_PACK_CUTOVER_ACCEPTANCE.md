@@ -1,104 +1,100 @@
-# PaintZ Standard Pack cut-over acceptance
+# PaintZ core-owned `PZ` / Standard Pack acceptance
 
-This procedure validates the final separation of PaintZ runtime core from the official PaintZ Standard Pack.
+This procedure validates the architecture in which PaintZ core owns the official `PZ` namespace while PaintZ Standard Pack is an independent content contributor.
 
-It is intentionally different from the earlier registry-bridge acceptance run: the core legacy `PZ` bridge is removed, so the external Standard Pack must be loaded for official `PZ-*` finishes to exist.
+The authoritative contracts are `PAINT_PACK_API.md` and `PAINT_PACK_CONFIG_V1.md`.
 
-## Required branches
+## Required coordinated branches
 
-Use these coordinated work branches:
+Use the matching feature branches without merging solely to perform this test:
 
 ```text
 PaintZ
-  feature/external-standard-pack-cutover
+  feature/core-owned-pz-namespace
 
 PaintZ-PackKit
-  feature/paint-pack-api-v1-output
+  feature/core-owned-pz-namespace
 
 PaintZ-Standard-Pack
-  feature/standard-pack-v1
+  feature/core-owned-pz-namespace
 ```
 
-Do not merge any of them merely to perform this test.
+## 1. Generate/build Standard Pack
 
-## 1. Seed Standard Pack pattern sources once
-
-The old PaintZ repository historically ignored binary artwork. If the seven Standard Pack source PNGs have not yet been committed to `PaintZ-Standard-Pack`, copy them once from the local pre-split PaintZ checkout:
-
-```powershell
-cd E:\DayZDev\PaintZ-Standard-Pack
-pwsh -File .\tools\Import-LegacyAssets.ps1 -PaintZRoot E:\DayZDev\PaintZ
-```
-
-Required files under `assets\pattern_sources`:
-
-```text
-erdl.png
-woodland.png
-vanilla-marpat-woodland.png
-ftn.png
-mctp.png
-tiger-stripe.png
-ucp.png
-```
-
-Review them before committing. After they are committed, Standard Pack is their authoritative source and the import helper is no longer part of normal builds.
-
-## 2. Build Standard Pack
-
-Make sure PackKit is on `feature/paint-pack-api-v1-output` and its Python environment has the tested dependencies installed.
-
-Then:
+With the PackKit feature branch available as the sibling checkout:
 
 ```powershell
 cd E:\DayZDev\PaintZ-Standard-Pack
 pwsh -File .\tools\Build.ps1
 ```
 
-Expected release mod:
+Expected release PBO:
 
 ```text
-E:\DayZDev\PaintZ-Standard-Pack\dist\release\@PaintZ-Standard-Pack
+dist\release\@PaintZ-Standard-Pack\Addons\PaintZ_Standard_Pack.pbo
 ```
 
-Expected PBO:
+For the current 13-finish catalogue, generation should still produce the expected can/surface assets for those finishes. Catalogue reorganization is a separate content change and is not required for this namespace acceptance.
+
+## 2. Inspect generated Standard Pack config
+
+The generated config **must not** contain a `CfgPaintZPacks` declaration for `PZ`.
+
+Every official finish registration must contain:
 
 ```text
-E:\DayZDev\PaintZ-Standard-Pack\dist\release\@PaintZ-Standard-Pack\Addons\PaintZ_Standard_Pack.pbo
+owner = "PZ_PaintZOfficial"
 ```
 
-Generation/build must produce 13 can textures and 48 target surfaces:
-
-- 6 solid 100% surfaces;
-- 7 patterned finishes x 6 scales = 42 patterned surfaces;
-- total target surfaces = 48.
-
-The generated API config must contain:
+`CfgPatches.requiredAddons[]` must contain:
 
 ```text
-CfgPaintZPacks PZ_PaintZStandardPack
-prefix = PZ
-official = 1
+PaintZ_DynamicPaint
 ```
 
-and 13 `CfgPaintZFinishes` declarations.
+and must not contain a dependency on another official content pack merely for namespace access, including:
 
-## 3. Build the synthetic API fixture
+```text
+PaintZ_Standard_Pack   # as an owner dependency inside another official pack
+PaintZ_Military_Pack
+PaintZ_Pastel_Pack
+PaintZ_Hunting_Pack
+```
 
-From the PaintZ cut-over branch:
+Standard Pack itself naturally has its own patch classname; the prohibition is on content-pack dependency chains.
+
+## 3. Inspect PaintZ core config
+
+PaintZ core must declare exactly one canonical owner:
+
+```cpp
+class CfgPaintZPacks
+{
+    class PZ_PaintZOfficial
+    {
+        apiVersion = 1;
+        prefix = "PZ";
+        official = 1;
+    };
+};
+```
+
+PaintZ core must not contain individual official finish registrations, official finish textures, or finish-specific spray-can subclasses.
+
+## 4. Build the synthetic API fixture
 
 ```powershell
 cd E:\DayZDev\PaintZ
 pwsh -File .\tools\sandbox\Build-PaintPackApiFixture.ps1
 ```
 
-The fixture remains useful because it exercises valid third-party registration plus deliberate owner/namespace/finish conflicts alongside the official Standard Pack.
+The fixture should continue to exercise valid third-party registration plus deliberate namespace/owner/finish conflicts.
 
-## 4. Start the cut-over sandbox
+Where the fixture contains assumptions that Standard Pack owns `PZ`, update the fixture first. The canonical official owner is now always `PZ_PaintZOfficial` from PaintZ core.
 
-Do **not** use `-RunSmokeTests` for this test. That switch refers to the older built-in-catalogue smoke harness and is not part of the external Standard Pack acceptance gate.
+## 5. Start sandbox with Standard Pack
 
-Run the sandbox script directly in the current PowerShell session so `AdditionalMods` binds as a real `string[]` rather than being flattened by a nested `pwsh -File` invocation:
+Example:
 
 ```powershell
 cd E:\DayZDev\PaintZ
@@ -111,113 +107,104 @@ $fixture = "$env:LOCALAPPDATA\PaintZSandbox\@PaintZ-PaintPackApiFixture"
   -AdditionalMods @($standardPack, $fixture)
 ```
 
-The launcher loads:
+Logical load/dependency order:
 
 ```text
-CF -> PaintZ core -> PaintZ Standard Pack -> synthetic API fixture
+CF -> PaintZ -> Standard Pack
+             -> fixture
 ```
 
-## 5. Registry expectations
+## 6. Registry expectations
 
-Search the server logs:
-
-```powershell
-rg -n "paint_pack_registry|\[PaintZ\]\[PackAPI Smoke\]|Virtual Machine Exception|\[PaintZ\].*FAIL" `
-  "$env:LOCALAPPDATA\PaintZSandbox\server-profiles" `
-  -g "*.RPT" -g "*.log"
-```
-
-Required positive evidence:
+Required positive evidence includes one active official namespace owner from PaintZ core:
 
 ```text
-namespace_registered prefix=PZ owner=PZ_PaintZStandardPack source=CfgPaintZPacks PZ_PaintZStandardPack
+prefix=PZ
+owner=PZ_PaintZOfficial
 ```
 
-All 13 official IDs must register from `CfgPaintZFinishes`, including:
-
-```text
-PZ-S-RGR
-PZ-S-FDE
-PZ-S-FGY
-PZ-S-UGY
-PZ-S-BLK
-PZ-S-WHT
-PZ-C-ERDL
-PZ-C-WDL
-PZ-C-DWD
-PZ-C-FTN
-PZ-C-MCT
-PZ-C-TGR
-PZ-C-UCP
-```
-
-The synthetic fixture should still report:
-
-```text
-[PaintZ][PackAPI Smoke] REGISTRY COMPLETE passed=20 failed=0
-[PaintZ][PackAPI Smoke] PLAYER COMPLETE passed=50 failed=0
-```
+All currently shipped Standard Pack finish IDs should register against that owner.
 
 Required negative evidence:
 
 ```text
-no namespace_conflict prefix=PZ
-no PaintZ_LegacyBuiltIn
-no <PaintZ core legacy bridge>
-no [PaintZ] ... FAIL
-no PaintZ-caused Virtual Machine Exception
+no second PZ owner
+no PZ namespace conflict
+no PZ_PaintZStandardPack owner reference
+no first/last-loaded overwrite behavior
+no PaintZ-caused config/script exception
 ```
 
-Expected deliberate fixture warnings for `DUP`, `PZA`, `AP2`, owner mismatch and duplicate `TST-S-DUP` remain valid success evidence.
+Deliberate third-party fixture warnings remain acceptable when they match the fixture's documented invalid cases.
 
-With Standard Pack plus the two valid `TST` fixture finishes loaded, the active registry should contain 2 valid namespaces (`PZ`, `TST`) and 15 valid finishes.
-
-## 6. Manual Standard Pack checks
-
-The sandbox now discovers loaded paint cans from `CfgVehicles`/`paintzFinish`, so the Standard Pack cans are staged without any hard-coded runtime catalogue.
+## 7. Manual finish checks
 
 Check at least:
 
-1. one solid official can, preferably `PaintZ_SprayCan_FDE`;
-2. one patterned official can, preferably `PaintZ_SprayCan_FTN`;
-3. one synthetic external can such as the red `TST-S-RED` fixture;
-4. `PaintZ_PaintStripperCan`.
+1. one Standard solid can;
+2. one Standard patterned/camouflage can;
+3. one external third-party fixture can;
+4. PaintZ paint stripper.
 
-For each official can:
+For each applicable official can verify:
 
-- Paint action is offered on a supported M4/AK target;
-- correct finish name/ID appears after painting;
-- can quantity is consumed;
-- patterned finish uses a registered Standard Pack surface;
-- Strip Paint is offered afterward;
-- stripping restores the original target appearance and clears logical state.
+- the generic Paint action is offered on a supported target;
+- the expected finish name/ID is stored/displayed;
+- the registered Standard Pack surface is applied;
+- paint quantity is consumed;
+- Strip Paint remains available and restores original appearance/logical state correctly.
 
-The existing official can classnames are intentionally preserved. No `PaintZ_SprayCan_*` classname migration should be necessary for server configuration.
+## 8. Missing-pack / independence check
 
-## 7. Core/pack ownership check
+Run PaintZ **without Standard Pack**.
 
-The built PaintZ core PBO must not contain:
+Acceptance:
 
-- official `PaintZ_SprayCan_*` finish classes;
-- `PZ-*` finish surface textures;
-- generated finish-specific can textures;
-- `PaintZ_PaintCatalog`;
-- generated per-finish paint actions.
+- `PZ` namespace still exists because PaintZ owns it;
+- there are simply no Standard Pack finish registrations;
+- PaintZ does not require Standard Pack to start;
+- historical persisted `PZ-*` IDs remain unresolved but preserved/strippable according to persistence rules.
 
-Those belong to Standard Pack.
+Then restore Standard Pack and verify those IDs resolve again.
 
-PaintZ core should contain only framework/runtime content plus the generic non-spawnable `PaintZ_SprayCanBase` and `PaintZ_PaintStripperCan`.
+## 9. Peer official-pack check
+
+Create or generate a small temporary official test pack with `--official`, a unique test `PZ-*` finish, and no Standard Pack dependency.
+
+Test both:
+
+```text
+PaintZ + temporary official pack
+```
+
+and:
+
+```text
+PaintZ + Standard Pack + temporary official pack
+```
+
+Acceptance:
+
+- the temporary official pack works without Standard Pack installed;
+- both official packs register unique `PZ-*` finishes together;
+- both reference `PZ_PaintZOfficial`;
+- neither declares `PZ`;
+- duplicate finish IDs are still rejected if deliberately introduced.
+
+This test proves the reason for the architecture change: official content packages are independent peers.
 
 ## Acceptance
 
-The cut-over is acceptable when:
+The core-owned namespace design is acceptable when:
 
-- Standard Pack builds successfully from its manifest/source artwork through PackKit;
-- PaintZ core builds without paint generation/assets;
-- `PZ` registers exactly once from Standard Pack;
-- all 13 official finishes register;
-- synthetic PackAPI suites remain 20/20 and 50/50;
-- solid/pattern official painting and stripping work manually;
-- no `PZ` collision, legacy-bridge reference, PaintZ `FAIL`, or PaintZ VM exception remains.
+- PaintZ builds/loads with one `PZ_PaintZOfficial` namespace owner;
+- Standard Pack emits no namespace owner;
+- Standard Pack finishes register against the core owner;
+- PaintZ runs without Standard Pack;
+- Standard Pack depends only on PaintZ for runtime/namespace access;
+- a second independent official test pack works with and without Standard Pack;
+- duplicate finish-ID and namespace collision protections remain deterministic;
+- painting, stripping, synchronization and persistence behavior remain intact;
+- no PaintZ-caused config/script errors remain.
 
-Only after this coordinated acceptance should the Standard Pack and PaintZ cut-over branches be considered candidates for integration.
+Only after this coordinated acceptance should these branches be considered candidates for integration.
