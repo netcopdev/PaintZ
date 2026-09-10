@@ -1,23 +1,54 @@
-# Tools
+# PaintZ build tools
 
-`build.ps1` is a convenience wrapper for a standard local DayZ Tools AddonBuilder installation. It intentionally accepts paths as parameters instead of hardcoding the developer's machine.
+## Normal build
 
-The wrapper runs paintzgen before AddonBuilder and converts both can-label assets
-and separate clean coating assets with ImageToPAA. Can artwork is exported to
-`data/cans`; paint applied to a target is exported to `data/surfaces`. Use
-`-ImageToPAA` when DayZ Tools is installed outside the standard Steam locations.
-`-SkipPaintZGen` is available for build diagnostics with already-generated outputs.
+Use:
 
-Before invoking AddonBuilder, the wrapper copies the project to a temporary clean
-staging directory without Git metadata, tool caches, or earlier build output. This
-avoids AddonBuilder's legacy source-copy failure on long internal repository paths.
+```powershell
+pwsh -File .\tools\build.ps1
+```
 
-If your existing DayZ mod build workflow is already established, use that instead and let Codex adapt/remove this helper.
+`build.ps1` is the canonical deployable build. It:
+
+1. stages only PaintZ runtime files;
+2. builds `dist\PaintZ.pbo` with AddonBuilder;
+3. audits the PBO contents with BankRev;
+4. removes stale signatures and signs the new PBO with DSSignFile;
+5. recreates the release package;
+6. copies the PBO, matching `.bisign`, public `.bikey`, and `mod.cpp` when present;
+7. verifies the required release files exist.
+
+Default release layout:
+
+```text
+dist/release/@PaintZ/
+  addons/
+    PaintZ.pbo
+    PaintZ.pbo.<key>.bisign
+  keys/
+    <key>.bikey
+  mod.cpp
+```
+
+By default the signing key pair is resolved as:
+
+```text
+E:\DayZServer\keys\PaintZ.biprivatekey
+E:\DayZServer\keys\PaintZ.bikey
+```
+
+Override with `-PrivateKey` and `-PublicKey`, or change `-KeyDir` / `-KeyName`.
+
+The public `.bikey` inside the mod release is for distribution. A signature-verifying dedicated server must also have that public key in its server-root `keys` directory.
+
+## Raw PBO helper
+
+`tools\build-pbo.ps1` is the internal/raw packaging helper. It creates `PaintZ.pbo` but does not sign or assemble a deployable mod folder. Use it only for tooling such as the isolated sandbox or diagnostics that explicitly do not need a release package.
+
+`tools\build-release.ps1` is retained as a compatibility wrapper and delegates to the canonical `build.ps1` release build.
+
+PaintZ core owns no finish textures. Finish assets are generated and built by content packs such as PaintZ-Standard-Pack. The legacy `-ImageToPAA` and `-SkipPaintZGen` parameters are retained only for compatibility and are not needed for a normal PaintZ core build.
 
 ## Local safe sandbox
 
-For the zero-CE, auto-spawned test environment, double-click
-`Run-PaintZSandbox.cmd` at the repository root. It reuses an existing packaged PBO
-by default. Pass `-Build` to package without regenerating paint assets, or
-`-Generate` to regenerate and package before launch. Full details and optional
-arguments are in `tools/sandbox/README.md`.
+For the zero-CE, auto-spawned test environment, double-click `Run-PaintZSandbox.cmd` at the repository root. The sandbox uses raw PBO packaging internally rather than the signed release workflow. Full details and optional arguments are in `tools/sandbox/README.md`.
