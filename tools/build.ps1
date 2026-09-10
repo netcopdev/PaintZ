@@ -8,9 +8,7 @@ param(
     [string]$PublicKey,
     [string]$AddonBuilder,
     [string]$DSSignFile,
-    [string]$BankRev,
-    [string]$ImageToPAA,
-    [switch]$SkipPaintZGen
+    [string]$BankRev
 )
 
 Set-StrictMode -Version Latest
@@ -127,7 +125,6 @@ if (-not $PublicKey) { $PublicKey = Get-ConfigString $localConfig 'PublicKey' }
 if (-not $AddonBuilder) { $AddonBuilder = Get-ConfigString $localConfig 'AddonBuilder' }
 if (-not $DSSignFile) { $DSSignFile = Get-ConfigString $localConfig 'DSSignFile' }
 if (-not $BankRev) { $BankRev = Get-ConfigString $localConfig 'BankRev' }
-if (-not $ImageToPAA) { $ImageToPAA = Get-ConfigString $localConfig 'ImageToPAA' }
 
 if (-not $PrivateKey -or -not $PublicKey) {
     throw "PaintZ signing paths are not configured. Create '$buildConfigPath' from tools\build-config.example.psd1, or pass -PrivateKey and -PublicKey explicitly."
@@ -172,12 +169,6 @@ $pboBuildArgs = @{
     AddonBuilder = $addonBuilderExe
     ProjectRoot = $projectRootFull
     OutputDir = $outputDirFull
-}
-if ($ImageToPAA) {
-    $pboBuildArgs.ImageToPAA = $ImageToPAA
-}
-if ($SkipPaintZGen) {
-    $pboBuildArgs.SkipPaintZGen = $true
 }
 
 & $pboBuildScript @pboBuildArgs

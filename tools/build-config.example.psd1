@@ -5,15 +5,14 @@
     PrivateKey = ''
     PublicKey  = ''
 
-    # Optional workstation overrides. Leave blank to use normal auto-discovery
-    # where supported by the calling repository.
+    # Optional PaintZ core build overrides. Leave blank to use auto-discovery.
     AddonBuilder = ''
     DSSignFile   = ''
     BankRev      = ''
-    ImageToPAA   = ''
 
-    # Used by content-pack builders when needed. PaintZ core safely ignores
-    # fields it does not consume.
-    Python      = ''
-    PackKitRoot = ''
+    # Shared content-pack authoring/build fields. PaintZ core does not consume
+    # these, but the same machine-local config may be reused by official packs.
+    ImageToPAA   = ''
+    Python       = ''
+    PackKitRoot  = ''
 }

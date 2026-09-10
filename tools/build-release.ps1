@@ -8,9 +8,7 @@ param(
     [string]$PublicKey,
     [string]$AddonBuilder,
     [string]$DSSignFile,
-    [string]$BankRev,
-    [string]$ImageToPAA,
-    [switch]$SkipPaintZGen
+    [string]$BankRev
 )
 
 Set-StrictMode -Version Latest
@@ -32,8 +30,6 @@ if ($PublicKey) { $buildArgs.PublicKey = $PublicKey }
 if ($AddonBuilder) { $buildArgs.AddonBuilder = $AddonBuilder }
 if ($DSSignFile) { $buildArgs.DSSignFile = $DSSignFile }
 if ($BankRev) { $buildArgs.BankRev = $BankRev }
-if ($ImageToPAA) { $buildArgs.ImageToPAA = $ImageToPAA }
-if ($SkipPaintZGen) { $buildArgs.SkipPaintZGen = $true }
 
 Write-Warning "tools\build-release.ps1 is retained for compatibility; tools\build.ps1 is now the canonical signed release build."
 & $buildScript @buildArgs
