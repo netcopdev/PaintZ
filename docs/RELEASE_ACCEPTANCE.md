@@ -12,6 +12,20 @@ A release is accepted only when all mandatory checks pass.
 - [ ] Health, ammunition, chamber state, attachments, cargo and inventory relationships are preserved.
 - [ ] Another connected player sees the painted finish.
 
+## Paint Pack API / official namespace
+
+- [ ] PaintZ core declares exactly one official `PZ` namespace owner: `PZ_PaintZOfficial`.
+- [ ] PaintZ core contains no individual official finish catalogue, finish-specific spray cans, or official finish assets.
+- [ ] PaintZ starts and functions with no official content pack installed.
+- [ ] An official PackKit-generated content pack emits no `CfgPaintZPacks` declaration for `PZ`.
+- [ ] Every official `PZ-*` finish registration references `owner = "PZ_PaintZOfficial"`.
+- [ ] An official content pack depends directly on `PaintZ_DynamicPaint` and not on another official content pack merely for namespace access.
+- [ ] Two independent official content packs can contribute distinct `PZ-*` finishes simultaneously.
+- [ ] A deliberate duplicate complete `PZ-*` finish ID is disabled rather than overwritten by load order.
+- [ ] A content pack attempting to redeclare `PZ` conflicts with the core owner and does not replace it.
+- [ ] Unassigned reserved `PZ?` namespaces remain unavailable unless explicitly assigned by a future API decision.
+- [ ] Moving an unchanged official finish between official content packs preserves its complete `PZ-*` ID and requires no persistence alias/migration.
+
 ## Universal architecture
 
 - [ ] PaintZ state, synchronization and persistence are implemented once on the shared `ItemBase` path.
@@ -32,7 +46,7 @@ A release is accepted only when all mandatory checks pass.
 - [ ] A loose stock/handguard/suppressor/optic/flashlight can match its declared slot family while on the ground.
 - [ ] Domain fields are AND and separate domain entries are OR.
 - [ ] `type` in rules accepts arbitrary valid DayZ base/config classes.
-- [ ] Rules support exactly one selector from `class_pattern`, `inherits`, `inventory_slot`, or `inventory_slot_pattern`.
+- [ ] Rules support the documented singular/plural selector families and multi-condition matching semantics.
 - [ ] Legacy version-1 `weapon` / `magazine` aliases remain accepted.
 - [ ] Omitted rule `type` behaves as `all`.
 - [ ] Ordered rules remain last-match-wins.
@@ -67,4 +81,4 @@ A release is accepted only when all mandatory checks pass.
 - [ ] Paint cans never offer Strip Paint; the dedicated stripper does.
 - [ ] Ruined cans and ruined targets cannot receive new paint.
 
-`tools/sandbox/PaintZ_FinishSmokeTest.c` remains an opt-in server smoke test. Multiplayer UI/visual replication and persistence restart scenarios require live-server acceptance testing.
+`tools/sandbox/PaintZ_FinishSmokeTest.c` and the Paint Pack API fixture remain opt-in smoke tests. Multiplayer UI/visual replication and persistence restart scenarios require live-server acceptance testing.
