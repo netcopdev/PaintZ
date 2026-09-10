@@ -3,8 +3,7 @@ param(
     [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
     [string]$OutputDir = (Join-Path (Resolve-Path (Join-Path $PSScriptRoot "..")).Path "dist"),
     [string]$ReleaseRoot = (Join-Path (Resolve-Path (Join-Path $PSScriptRoot "..")).Path "dist\release"),
-    [string]$KeyDir = "E:\DayZServer\keys",
-    [string]$KeyName = "PaintZ",
+    [string]$BuildConfig,
     [string]$PrivateKey,
     [string]$PublicKey,
     [string]$AddonBuilder,
@@ -37,7 +36,23 @@ function Resolve-RequiredFile {
         }
     }
 
-    throw "$Description was not found. Pass its path explicitly."
+    throw "$Description was not found. Pass its path explicitly or configure it in the PaintZ build config."
+}
+
+function Get-ConfigString {
+    param(
+        [hashtable]$Config,
+        [string]$Name
+    )
+
+    if ($Config.ContainsKey($Name) -and $null -ne $Config[$Name]) {
+        $value = [string]$Config[$Name]
+        if (-not [string]::IsNullOrWhiteSpace($value)) {
+            return $value
+        }
+    }
+
+    return $null
 }
 
 function Assert-PboContents {
@@ -86,6 +101,38 @@ $projectRootFull = (Resolve-Path -LiteralPath $ProjectRoot).Path
 $outputDirFull = [System.IO.Path]::GetFullPath($OutputDir)
 $releaseRootFull = [System.IO.Path]::GetFullPath($ReleaseRoot)
 
+$buildConfigPath = $BuildConfig
+if (-not $buildConfigPath -and $env:PAINTZ_BUILD_CONFIG) {
+    $buildConfigPath = $env:PAINTZ_BUILD_CONFIG
+}
+if (-not $buildConfigPath) {
+    if (-not $env:LOCALAPPDATA) {
+        throw "LOCALAPPDATA is not available. Pass -BuildConfig or set PAINTZ_BUILD_CONFIG."
+    }
+    $buildConfigPath = Join-Path $env:LOCALAPPDATA "PaintZ\build.psd1"
+}
+$buildConfigPath = [System.IO.Path]::GetFullPath($buildConfigPath)
+
+$localConfig = @{}
+if (Test-Path -LiteralPath $buildConfigPath -PathType Leaf) {
+    $loadedConfig = Import-PowerShellDataFile -LiteralPath $buildConfigPath
+    if ($null -eq $loadedConfig) {
+        throw "PaintZ build config '$buildConfigPath' did not contain a PowerShell data table."
+    }
+    $localConfig = $loadedConfig
+}
+
+if (-not $PrivateKey) { $PrivateKey = Get-ConfigString $localConfig 'PrivateKey' }
+if (-not $PublicKey) { $PublicKey = Get-ConfigString $localConfig 'PublicKey' }
+if (-not $AddonBuilder) { $AddonBuilder = Get-ConfigString $localConfig 'AddonBuilder' }
+if (-not $DSSignFile) { $DSSignFile = Get-ConfigString $localConfig 'DSSignFile' }
+if (-not $BankRev) { $BankRev = Get-ConfigString $localConfig 'BankRev' }
+if (-not $ImageToPAA) { $ImageToPAA = Get-ConfigString $localConfig 'ImageToPAA' }
+
+if (-not $PrivateKey -or -not $PublicKey) {
+    throw "PaintZ signing paths are not configured. Create '$buildConfigPath' from tools\build-config.example.psd1, or pass -PrivateKey and -PublicKey explicitly."
+}
+
 $steamRoots = @(
     "C:\Program Files (x86)\Steam\steamapps\common",
     "C:\Program Files\Steam\steamapps\common",
@@ -100,14 +147,6 @@ $bankRevCandidates = $steamRoots | ForEach-Object { Join-Path $_ "DayZ Tools\Bin
 $addonBuilderExe = Resolve-RequiredFile $AddonBuilder $addonBuilderCandidates "AddonBuilder.exe"
 $dsSignFileExe = Resolve-RequiredFile $DSSignFile $dsSignCandidates "DSSignFile.exe"
 $bankRevExe = Resolve-RequiredFile $BankRev $bankRevCandidates "BankRev.exe"
-
-if (-not $PrivateKey) {
-    $PrivateKey = Join-Path $KeyDir "$KeyName.biprivatekey"
-}
-if (-not $PublicKey) {
-    $PublicKey = Join-Path $KeyDir "$KeyName.bikey"
-}
-
 $privateKeyPath = Resolve-RequiredFile $PrivateKey @() "PaintZ private signing key"
 $publicKeyPath = Resolve-RequiredFile $PublicKey @() "PaintZ public signing key"
 
@@ -121,13 +160,12 @@ New-Item -ItemType Directory -Force -Path $releaseRootFull | Out-Null
 
 Write-Host "PaintZ release build"
 Write-Host "  Project      : $projectRootFull"
+Write-Host "  Build config : $buildConfigPath"
 Write-Host "  Output       : $outputDirFull"
 Write-Host "  Release      : $releaseRootFull"
 Write-Host "  AddonBuilder : $addonBuilderExe"
 Write-Host "  DSSignFile   : $dsSignFileExe"
 Write-Host "  BankRev      : $bankRevExe"
-Write-Host "  Private key  : $privateKeyPath"
-Write-Host "  Public key   : $publicKeyPath"
 Write-Host ""
 
 $pboBuildArgs = @{
