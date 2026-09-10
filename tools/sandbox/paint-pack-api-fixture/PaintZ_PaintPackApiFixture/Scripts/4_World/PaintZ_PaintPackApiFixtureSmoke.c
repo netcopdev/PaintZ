@@ -24,6 +24,10 @@ class PaintZ_PaintPackApiFixtureSmoke
 
         PaintZ_PaintPackRegistry.EnsureInitialized();
 
+        Check(PaintZ_PaintPackRegistry.IsNamespaceValid("PZ"), "core-owned PZ namespace registered without a content-pack owner");
+        Check(PaintZ_PaintPackRegistry.HasFinish("PZ-S-API"), "independent official contributor finish registered against core PZ owner");
+        Check(PaintZ_PaintPackRegistry.GetFinishName("PZ-S-API") == "Official API Fixture", "official contributor finish resolves through core-owned PZ namespace");
+
         Check(PaintZ_PaintPackRegistry.IsNamespaceValid("TST"), "valid TST namespace registered");
         Check(PaintZ_PaintPackRegistry.HasFinish("TST-S-RED"), "valid solid finish registered");
         Check(PaintZ_PaintPackRegistry.HasFinish("tst-s-red"), "finish lookup is case-normalized");
