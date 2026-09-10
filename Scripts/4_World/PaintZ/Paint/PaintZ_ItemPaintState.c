@@ -117,45 +117,38 @@ modded class ItemBase
         PaintZ_StaleFinishRecovery.Resolve(this);
     }
 
-    protected string PaintZ_GetDisplayFinishName()
+    protected string PaintZ_GetDisplayPaintCode()
     {
-        return PaintZ_ItemDisplay.ResolveFinishName(m_PaintZPaintCode);
+        if (!m_PaintZHasState)
+            return PaintZ_PaintConstants.PAINT_NONE;
+
+        if (m_PaintZPaintCode != PaintZ_PaintConstants.PAINT_NONE)
+            return m_PaintZPaintCode;
+
+        return PaintZ_PaintStateRuntime.GetNetworkPaintCode(m_PaintZPaintCodeHash);
     }
 
-    override bool NameOverride(out string output)
+    override string GetDisplayName()
     {
-        string baseName;
-        bool hasUpstreamOverride = super.NameOverride(baseName);
-        if (m_PaintZPaintCode == PaintZ_PaintConstants.PAINT_NONE)
-        {
-            output = baseName;
-            return hasUpstreamOverride;
-        }
+        string baseName = super.GetDisplayName();
+        string paintCode = PaintZ_GetDisplayPaintCode();
+        if (paintCode == PaintZ_PaintConstants.PAINT_NONE)
+            return baseName;
 
-        if (hasUpstreamOverride)
-            baseName = Widget.TranslateString(baseName);
-        else
-            g_Game.ObjectGetDisplayName(this, baseName);
-
-        output = PaintZ_ItemDisplay.FormatDisplayName(baseName, PaintZ_GetDisplayFinishName());
-        return true;
+        string finishName = PaintZ_ItemDisplay.ResolveFinishName(paintCode);
+        return PaintZ_ItemDisplay.FormatDisplayName(baseName, finishName);
     }
 
-    override bool DescriptionOverride(out string output)
+    override string GetTooltip()
     {
-        string baseDescription;
-        bool hasUpstreamOverride = super.DescriptionOverride(baseDescription);
-        if (m_PaintZPaintCode == PaintZ_PaintConstants.PAINT_NONE)
-        {
-            output = baseDescription;
-            return hasUpstreamOverride;
-        }
+        string baseDescription = super.GetTooltip();
+        string paintCode = PaintZ_GetDisplayPaintCode();
+        if (paintCode == PaintZ_PaintConstants.PAINT_NONE)
+            return baseDescription;
 
-        if (!hasUpstreamOverride)
-            baseDescription = ConfigGetString("descriptionShort");
         baseDescription = Widget.TranslateString(baseDescription);
-        output = PaintZ_ItemDisplay.FormatDescription(baseDescription, PaintZ_GetDisplayFinishName(), m_PaintZPaintCode);
-        return true;
+        string finishName = PaintZ_ItemDisplay.ResolveFinishName(paintCode);
+        return PaintZ_ItemDisplay.FormatDescription(baseDescription, finishName, paintCode);
     }
 
     void PaintZ_LoadPaintState(string paintCode)
