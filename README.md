@@ -96,7 +96,7 @@ See `config/paintz_stale_finishes_README.txt` and `docs/STALE_FINISH_RECOVERY.md
 
 ## Painted item identification
 
-Painted items expose their PaintZ finish through DayZ's normal dynamic name and description hooks. With Flecktarn applied, for example:
+Painted items expose their PaintZ finish through DayZ's normal display-name and tooltip accessors. With Flecktarn applied, for example:
 
 ```text
 KA-74 [Flecktarn]
@@ -108,7 +108,9 @@ and the description receives:
 Finish: Flecktarn (PZ-C-FTN)
 ```
 
-PaintZ calls the previous `NameOverride` / `DescriptionOverride` implementation first and decorates that result, preserving compatible third-party dynamic naming behavior. Stripping clears only PaintZ logical finish state and removes the extra presentation.
+PaintZ calls the previous `GetDisplayName()` / `GetTooltip()` implementation first and decorates the final result on the shared `ItemBase` path. This allows subclass-specific `NameOverride` / `DescriptionOverride` logic, including weapon-specific dynamic naming from other mods, to resolve before PaintZ appends its finish information. Stripping clears only PaintZ logical finish state and removes the extra presentation.
+
+As with normal DayZ mod chaining, a third-party subclass that overrides `GetDisplayName()` or `GetTooltip()` itself and deliberately does not call `super` can suppress earlier implementations. PaintZ does not add per-class compatibility patches for such broken accessor chains.
 
 ## Runtime policy
 
