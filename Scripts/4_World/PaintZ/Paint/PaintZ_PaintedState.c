@@ -11,6 +11,8 @@ class PaintZ_PaintedState
         if (!item)
             return false;
 
+        item.PaintZ_ResolveStaleFinishState();
+
         if (item.PaintZ_HasState())
             return true;
         if (item.PaintZ_GetPaintCode() != PaintZ_PaintConstants.PAINT_NONE)
@@ -26,6 +28,8 @@ class PaintZ_PaintedState
         ItemBase item = ItemBase.Cast(target);
         if (!item)
             return -1;
+
+        item.PaintZ_ResolveStaleFinishState();
 
         int recordedSelection = item.PaintZ_GetPaintSelection();
         if (recordedSelection >= 0)
