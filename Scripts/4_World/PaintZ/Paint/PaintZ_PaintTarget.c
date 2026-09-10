@@ -37,6 +37,12 @@ class PaintZ_PaintTarget
         if (!target)
             return false;
 
+        ItemBase item = ItemBase.Cast(target);
+        if (!item)
+            return false;
+
+        item.PaintZ_ResolveStaleFinishState();
+
         if (paintCode != PaintZ_PaintConstants.PAINT_NONE)
         {
             if (!PaintZ_PaintPackRegistry.HasFinish(paintCode))
@@ -44,10 +50,6 @@ class PaintZ_PaintTarget
             if (!PaintZ_ItemPolicy.IsRelevantTarget(target) || target.IsRuined() || !PaintZ_ItemPolicy.IsPaintApplicationAllowed(target))
                 return false;
         }
-
-        ItemBase item = ItemBase.Cast(target);
-        if (!item)
-            return false;
 
         return item.PaintZ_SetPaintState(paintCode, selectionIndex);
     }
