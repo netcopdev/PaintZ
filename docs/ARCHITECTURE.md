@@ -12,14 +12,15 @@ A second architecture invariant applies to official content: **PaintZ core owns 
 
 ## Runtime layers
 
-PaintZ separates four concerns:
+PaintZ separates five concerns:
 
 1. **Finish availability** — the Paint Pack API registry discovers installed namespace owners and finish definitions and resolves a canonical finish ID to explicitly declared runtime surfaces.
 2. **Relevance / administration** — `paintz_items.json` domains and ordered include/exclude rules decide whether a new paint application should be considered.
 3. **Technical capability** — `PaintZ_PaintInspector` inspects actual runtime hidden selections and conservatively chooses a safe body-like selection.
 4. **Existing PaintZ state** — logical finish assignment, synchronization and persistence belong to the physical `ItemBase` instance and remain independent from current policy or current finish-pack availability.
+5. **Explicit stale-state recovery** — `paintz_stale_finishes.json` may lazily migrate or prune an unregistered persisted finish ID without changing registry identity or introducing category-specific persistence.
 
-A domain can disappear after an item was painted. Likewise a content pack can become temporarily unavailable. Historical finish identity remains stored and the item remains strippable.
+A domain can disappear after an item was painted. Likewise a content pack can become temporarily unavailable. Historical finish identity remains stored and the item remains strippable by default. Stale-state recovery changes that historical identity only when a server administrator explicitly configures a migration or destructive prune policy.
 
 ## Paint Pack API runtime registry
 
@@ -31,7 +32,7 @@ API v1 uses one short canonical finish identity:
 <PREFIX>-<TYPE>-<SUFFIX>
 ```
 
-Examples include `PZ-C-FTN`, `PZ-S-FDE` and third-party IDs such as `NCP-C-FTN`.
+Examples include `PZ-B-BLK`, `PZ-C-FTN`, `PZ-S-FDE` and third-party IDs such as `NCP-C-FTN`.
 
 PaintZ exposes `CfgPaintZPacks` and `CfgPaintZFinishes`. Initialization is two-phase:
 
@@ -45,6 +46,8 @@ A finish config entry explicitly references the config child class that owns its
 PaintZ owns one generic paint action. A `PaintZ_SprayCanBase` subclass identifies its finish using `paintzFinish`; runtime behavior is resolved from the registry rather than generated per-finish action subclasses.
 
 Each finish declaration explicitly enumerates the runtime surfaces PaintZ may apply, including pattern-scale variants where applicable. Runtime code does not synthesize third-party asset paths from finish IDs.
+
+Stale-finish migration does not alter this registry. It maps historical persisted state to an already registered destination at the item-state layer. A source ID that is still registered is therefore never eligible for stale migration.
 
 ## Core-owned official `PZ` namespace
 
@@ -85,11 +88,12 @@ Third-party multi-PBO namespace families may still use the separate owner/satell
 - resolved paint selection;
 - network hash/synchronization;
 - transient derived pattern-scale percentage;
-- persistent logical assignment.
+- persistent logical assignment;
+- transient stale-recovery config revision already evaluated for that item.
 
 `PaintZ_PaintTarget` does not dispatch by category. It casts the target to `ItemBase` and updates the shared state.
 
-Pattern-scale percentage is networked because clients need the same registered surface variant, but it is not persistent logical state.
+Pattern-scale percentage is networked because clients need the same registered surface variant, but it is not persistent logical state. The stale-recovery revision is server-local transient bookkeeping and is neither persisted nor networked.
 
 The complete finish string is retained authoritatively on server/persistence paths. Network replication currently uses the finish string's integer hash plus selection/scale because DayZ does not provide a normal `EntityAI` string net-sync variable. The registry therefore rejects active finish-hash collisions.
 
@@ -111,11 +115,36 @@ Consequences:
 - when PaintZ is temporarily absent but CF remains loaded, CF can preserve PaintZ's opaque unloaded-mod payload;
 - removing CF as well is outside the persistence guarantee.
 
-Unknown/unregistered finish IDs are valid historical state. If a content pack is missing, conflicted or invalid, PaintZ does not erase the stored ID. It restores/keeps the original target visual where possible and leaves Strip Paint available. Reinstalling the same valid finish later allows normal restoration.
+Unknown/unregistered finish IDs are valid historical state and are preserved by default. If a content pack is missing, conflicted or invalid, PaintZ does not implicitly erase the stored ID. It restores/keeps the original target visual where possible and leaves Strip Paint available. Reinstalling the same valid finish later allows normal restoration.
 
-This directly supports official catalogue reorganization. If `PZ-C-FTN` moves from Standard Pack to Military Pack, its persisted identity remains `PZ-C-FTN`; only which package supplies the registration/assets changes.
+An administrator may explicitly configure stale-state recovery. Exact migration replaces an unregistered historical ID with a currently registered destination through the same `ItemBase` state path. `prune_unknown` may clear an otherwise-unmapped stale assignment. These operations are explicit persistence repair, not implicit consequences of a pack being absent or a target being excluded by policy.
+
+This directly supports official catalogue reorganization without recovery when IDs stay unchanged. If `PZ-C-FTN` moves from Standard Pack to Military Pack, its persisted identity remains `PZ-C-FTN`; only which package supplies the registration/assets changes. Stale recovery is needed only when identity itself is deliberately retired/changed or abandoned state is deliberately cleaned up.
 
 Pattern scale is excluded from persistence. On post-load restoration PaintZ remeasures the target and derives the current scale before applying a registered surface. Eligibility policy is not consulted while restoring historical state.
+
+## Stale finish recovery
+
+`$profile:PaintZ/paintz_stale_finishes.json` is a server-side persistence-repair layer for currently unregistered PaintZ finish IDs.
+
+Its resolution rules are intentionally narrow:
+
+1. registered source ID -> untouched;
+2. unregistered source with exact migration -> migrate only to a currently registered destination;
+3. unregistered source without migration and `prune_unknown = true` -> clear PaintZ state;
+4. otherwise -> preserve historical state.
+
+Migration takes precedence over pruning. A failed matching migration preserves state and does not fall through to prune. Chains and wildcard mappings are rejected.
+
+Recovery is lazy and centralized through shared `ItemBase` state. It runs before post-load visual restoration and before server-side operations that depend on existing PaintZ state. It does not scan persistence files or enumerate every loaded entity when configuration changes.
+
+Each item tracks only the transient successful config revision it has already evaluated. A later successful reload permits reevaluation on the next encounter; repeated action-condition ticks under the same revision do not repeatedly execute/warn about the same stale state.
+
+A successful migration stores only the destination canonical finish ID in normal item state. No alias, migration marker, source ID, registry path or recovery metadata is added to CF persistence.
+
+A prune with a safe recoverable selection restores that selection's configured/original texture before clearing logical state. If no safe selection exists, PaintZ clears the logical stale assignment without guessing a texture index.
+
+See `STALE_FINISH_RECOVERY.md`.
 
 ## Runtime item policy
 
@@ -132,7 +161,7 @@ Slot matching uses the target class's **declared compatible slot data**, not its
 
 Rules are evaluated top-to-bottom and last matching rule wins. Type scope is optional and may use valid DayZ base/config classes plus legacy `weapon` / `magazine` aliases for compatibility.
 
-Policy affects new painting/repainting only. Existing PaintZ state remains independent and stripping remains available after exclusion/domain removal.
+Policy affects new painting/repainting only. Existing PaintZ state remains independent and stripping remains available after exclusion/domain removal. Policy exclusion does not make a registered finish stale.
 
 ## Selection safety
 
@@ -144,6 +173,8 @@ Functional surfaces indicating glass, lens, reticle, display, screen, LED, emiss
 
 If several selections remain ambiguous, PaintZ rejects the target instead of guessing.
 
+The same inspection safety applies to stale migration. An unresolved historical ID is not an excuse to guess which selection should receive a replacement finish.
+
 ## Pattern scale normalization
 
 Pattern scale is derived visual state, not finish identity.
@@ -154,7 +185,7 @@ Scale availability is per finish. The active content pack explicitly declares ev
 
 A configured scale must be a positive whole percentage up to 1000%. If the requested scale is unavailable, PaintZ falls back to the finish's configured/default 100% representation.
 
-Scale is derived at application/repaint and post-load restoration. Reloading scale configuration does not enumerate and mutate all already-loaded painted objects.
+Scale is derived at application/repaint, stale migration and post-load restoration. Reloading scale configuration does not enumerate and mutate all already-loaded painted objects.
 
 Longest collision-box size is intentionally an approximation rather than a promise of real-world texel density. Different UV layouts can produce different apparent pattern scales on similarly sized objects.
 
@@ -170,7 +201,7 @@ The server owns/reloads this configuration and synchronizes valid settings to cl
 
 ## Object preservation
 
-Painting modifies the existing object with `SetObjectTexture()` or the verified current equivalent and does not replace its classname.
+Painting and stale migration modify the existing object with `SetObjectTexture()` or the verified current equivalent and do not replace its classname.
 
 Preserve health, ammunition, chamber/FSM state, attachments, cargo, inventory location, parent/container relationships and third-party state owned by the original item/mod.
 
@@ -198,6 +229,8 @@ PaintZ -> PackKit
 official content pack -> another official content pack merely for PZ access
 ```
 
+Stale migration does not create a dependency on the pack that originally supplied the stale ID. It only requires that the configured destination be present in the current PaintZ registry when encountered.
+
 ## Boundary of universality
 
-The JSON-only category expansion guarantee applies to ordinary `ItemBase`-derived inventory items. Static world objects, buildings, vehicles or other unrelated engine hierarchies may need separate lifecycle/persistence design and are not implicitly covered by adding a domain.
+The JSON-only category expansion guarantee applies to ordinary `ItemBase`-derived inventory items. Static world objects, buildings, vehicles or other unrelated engine hierarchies may need separate lifecycle/persistence design and are not implicitly covered by adding a domain or stale-recovery rule.
