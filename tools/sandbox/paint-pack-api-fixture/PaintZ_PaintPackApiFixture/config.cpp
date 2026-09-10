@@ -97,6 +97,25 @@ class CfgPaintZPacks
 
 class CfgPaintZFinishes
 {
+    // Valid official-content contribution. The fixture deliberately does not
+    // declare PZ; PaintZ core owns that namespace through PZ_PaintZOfficial.
+    class PZ_API_S_API
+    {
+        id = "PZ-S-API";
+        owner = "PZ_PaintZOfficial";
+        displayName = "Official API Fixture";
+        type = "solid";
+
+        class Surfaces
+        {
+            class S100
+            {
+                scalePercent = 100;
+                texture = "#(argb,8,8,3)color(0.2,0.4,0.8,1.0,CO)";
+            };
+        };
+    };
+
     class TST_S_RED
     {
         id = "TST-S-RED";
