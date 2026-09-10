@@ -79,6 +79,8 @@ class PaintZ_PaintPackRegistry
     static const int API_VERSION = 1;
     protected static const string PACK_ROOT = "CfgPaintZPacks";
     protected static const string FINISH_ROOT = "CfgPaintZFinishes";
+    protected static const string OFFICIAL_PZ_PREFIX = "PZ";
+    protected static const string OFFICIAL_PZ_OWNER = "PZ_PaintZOfficial";
 
     protected static bool s_Initialized;
     protected static ref array<ref PaintZ_PaintPackNamespace> s_Namespaces;
@@ -266,9 +268,9 @@ class PaintZ_PaintPackRegistry
                 continue;
             }
 
-            if (IsReservedPrefix(owner.m_Prefix) && !owner.m_Official)
+            if (IsReservedPrefix(owner.m_Prefix) && !IsAssignedOfficialOwner(owner))
             {
-                PaintZ_PaintLog.Warning("paint_pack_registry owner_rejected source=" + path + " reason=reserved_prefix prefix=" + owner.m_Prefix);
+                PaintZ_PaintLog.Warning("paint_pack_registry owner_rejected source=" + path + " reason=reserved_owner_not_assigned prefix=" + owner.m_Prefix + " owner=" + owner.m_ConfigClass);
                 continue;
             }
 
@@ -477,6 +479,14 @@ class PaintZ_PaintPackRegistry
     protected static bool IsReservedPrefix(string prefix)
     {
         return prefix.Length() >= 2 && prefix.Substring(0, 2) == "PZ";
+    }
+
+    protected static bool IsAssignedOfficialOwner(PaintZ_PaintPackNamespace owner)
+    {
+        if (!owner || !owner.m_Official)
+            return false;
+
+        return owner.m_Prefix == OFFICIAL_PZ_PREFIX && owner.m_ConfigClass == OFFICIAL_PZ_OWNER;
     }
 
     protected static bool ParseFinishId(string finishId, out string prefix, out string typeCode, out string suffix)
