@@ -1,44 +1,51 @@
-# PaintZ core-owned `PZ` / Standard Pack acceptance
+# PaintZ core-owned `PZ` / official-pack regression acceptance
 
-This procedure validates the architecture in which PaintZ core owns the official `PZ` namespace while PaintZ Standard Pack is an independent content contributor.
+This procedure validates the current architecture in which PaintZ core owns the official `PZ` namespace while Standard, Field, Vanilla and other official packs are independent content contributors.
 
-The authoritative contracts are `PAINT_PACK_API.md` and `PAINT_PACK_CONFIG_V1.md`.
+The authoritative contracts are `PAINT_PACK_API.md` and `PAINT_PACK_CONFIG_V1.md`. This is now a regression checklist, not a pending cutover procedure.
 
-## Required coordinated branches
+## 1. Use current integration state
 
-Use the matching feature branches without merging solely to perform this test:
+Run this acceptance against current `main` branches, or against coordinated work branches when validating a new cross-repository change. Do not rely on obsolete `feature/core-owned-pz-namespace` branches.
+
+Relevant repositories currently include:
 
 ```text
 PaintZ
-  feature/core-owned-pz-namespace
-
 PaintZ-PackKit
-  feature/core-owned-pz-namespace
-
 PaintZ-Standard-Pack
-  feature/core-owned-pz-namespace
+PaintZ-Field-Pack
+PaintZ-Vanilla-Pack
 ```
 
-## 1. Generate/build Standard Pack
+## 2. Generate/build official packs
 
-With the PackKit feature branch available as the sibling checkout:
+With PackKit available as the sibling authoring dependency, build the packs being tested with their canonical scripts, for example:
 
 ```powershell
 cd E:\DayZDev\PaintZ-Standard-Pack
 pwsh -File .\tools\Build.ps1
 ```
 
-Expected release PBO:
+Expected Standard release PBO:
 
 ```text
-dist\release\@PaintZ-Standard-Pack\Addons\PaintZ_Standard_Pack.pbo
+dist\release\@PaintZ-Standard-Pack\addons\PaintZ_Standard_Pack.pbo
 ```
 
-For the current 13-finish catalogue, generation should still produce the expected can/surface assets for those finishes. Catalogue reorganization is a separate content change and is not required for this namespace acceptance.
+Field and Vanilla use their corresponding lowercase `addons`, `keys`, and `server-config` release directories.
 
-## 2. Inspect generated Standard Pack config
+Current catalogue expectations:
 
-The generated config **must not** contain a `CfgPaintZPacks` declaration for `PZ`.
+- Standard: 16 general-purpose `PZ-B-*` Basic colors;
+- Field: 8 field/service Basics plus ERDL/WDL/FTN/MCT/TGR/UCP camouflage;
+- Vanilla: `PZ-C-DWD` as the initial vanilla-inspired finish.
+
+Each pack owns its referenced source assets locally.
+
+## 3. Inspect generated official-pack config
+
+Generated official-pack config **must not** contain a `CfgPaintZPacks` declaration for `PZ`.
 
 Every official finish registration must contain:
 
@@ -52,18 +59,11 @@ owner = "PZ_PaintZOfficial"
 PaintZ_DynamicPaint
 ```
 
-and must not contain a dependency on another official content pack merely for namespace access, including:
+and must not contain another official content pack merely for namespace or asset access.
 
-```text
-PaintZ_Standard_Pack   # as an owner dependency inside another official pack
-PaintZ_Military_Pack
-PaintZ_Pastel_Pack
-PaintZ_Hunting_Pack
-```
+Basic finishes must use one procedural S100 color surface and must not require a target-surface PAA. Asset-backed finishes must reference only assets owned by the pack that registers them.
 
-Standard Pack itself naturally has its own patch classname; the prohibition is on content-pack dependency chains.
-
-## 3. Inspect PaintZ core config
+## 4. Inspect PaintZ core config
 
 PaintZ core must declare exactly one canonical owner:
 
@@ -79,9 +79,9 @@ class CfgPaintZPacks
 };
 ```
 
-PaintZ core must not contain individual official finish registrations, official finish textures, or finish-specific spray-can subclasses.
+PaintZ core must not contain individual official finish registrations, official finish textures, finish-specific spray-can subclasses, or the removed legacy in-core `paintzgen` authoring implementation.
 
-## 4. Build the synthetic API fixture
+## 5. Build the synthetic API fixture
 
 ```powershell
 cd E:\DayZDev\PaintZ
@@ -90,9 +90,9 @@ pwsh -File .\tools\sandbox\Build-PaintPackApiFixture.ps1
 
 The fixture should continue to exercise valid third-party registration plus deliberate namespace/owner/finish conflicts.
 
-Where the fixture contains assumptions that Standard Pack owns `PZ`, update the fixture first. The canonical official owner is now always `PZ_PaintZOfficial` from PaintZ core.
+The canonical official owner is always `PZ_PaintZOfficial` from PaintZ core.
 
-## 5. Start sandbox with Standard Pack
+## 6. Start sandbox with current official packs
 
 Example:
 
@@ -100,21 +100,25 @@ Example:
 cd E:\DayZDev\PaintZ
 
 $standardPack = "E:\DayZDev\PaintZ-Standard-Pack\dist\release\@PaintZ-Standard-Pack"
+$fieldPack = "E:\DayZDev\PaintZ-Field-Pack\dist\release\@PaintZ-Field-Pack"
+$vanillaPack = "E:\DayZDev\PaintZ-Vanilla-Pack\dist\release\@PaintZ-Vanilla-Pack"
 $fixture = "$env:LOCALAPPDATA\PaintZSandbox\@PaintZ-PaintPackApiFixture"
 
 & .\tools\sandbox\Start-PaintZSandbox.ps1 `
   -Build `
-  -AdditionalMods @($standardPack, $fixture)
+  -AdditionalMods @($standardPack, $fieldPack, $vanillaPack, $fixture)
 ```
 
 Logical load/dependency order:
 
 ```text
 CF -> PaintZ -> Standard Pack
+             -> Field Pack
+             -> Vanilla Pack
              -> fixture
 ```
 
-## 6. Registry expectations
+## 7. Registry expectations
 
 Required positive evidence includes one active official namespace owner from PaintZ core:
 
@@ -123,88 +127,90 @@ prefix=PZ
 owner=PZ_PaintZOfficial
 ```
 
-All currently shipped Standard Pack finish IDs should register against that owner.
+All current official finish IDs should register against that owner with no duplicate complete IDs.
 
 Required negative evidence:
 
 ```text
 no second PZ owner
 no PZ namespace conflict
-no PZ_PaintZStandardPack owner reference
+no obsolete content-pack PZ owner reference
 no first/last-loaded overwrite behavior
 no PaintZ-caused config/script exception
 ```
 
 Deliberate third-party fixture warnings remain acceptable when they match the fixture's documented invalid cases.
 
-## 7. Manual finish checks
+## 8. Manual finish checks
 
 Check at least:
 
-1. one Standard solid can;
-2. one Standard patterned/camouflage can;
-3. one external third-party fixture can;
-4. PaintZ paint stripper.
+1. one Standard Basic can;
+2. one Field Basic can;
+3. one Field camouflage can;
+4. Vanilla DWD;
+5. one external third-party fixture can;
+6. PaintZ paint stripper.
 
-For each applicable official can verify:
+For each applicable can verify:
 
 - the generic Paint action is offered on a supported target;
 - the expected finish name/ID is stored/displayed;
-- the registered Standard Pack surface is applied;
+- the registered surface representation is applied;
 - paint quantity is consumed;
-- Strip Paint remains available and restores original appearance/logical state correctly.
+- Strip Paint restores original appearance/logical state correctly;
+- generated can artwork includes the visible PaintZ top logo with the red `Z`.
 
-## 8. Missing-pack / independence check
+## 9. Missing-pack / independence checks
 
-Run PaintZ **without Standard Pack**.
+Run PaintZ without any official content pack.
 
 Acceptance:
 
 - `PZ` namespace still exists because PaintZ owns it;
-- there are simply no Standard Pack finish registrations;
-- PaintZ does not require Standard Pack to start;
+- there are simply no registrations from the removed packs;
+- PaintZ does not require Standard, Field or Vanilla to start;
 - historical persisted `PZ-*` IDs remain unresolved but preserved/strippable according to persistence rules.
 
-Then restore Standard Pack and verify those IDs resolve again.
+Then test each official pack independently with PaintZ. Field and Vanilla must not require Standard.
 
-## 9. Peer official-pack check
+## 10. Packaging-only catalogue move check
 
-Create or generate a small temporary official test pack with `--official`, a unique test `PZ-*` finish, and no Standard Pack dependency.
+The completed camouflage split is a reference case:
 
-Test both:
+- ERDL/WDL/FTN/MCT/TGR/UCP are registered by Field with unchanged `PZ-C-*` IDs;
+- DWD is registered by Vanilla with unchanged `PZ-C-DWD`;
+- Standard no longer registers those finishes or carries their source PNGs.
+
+Persisted items with unchanged camouflage IDs must resolve from their new package without migration or alias data.
+
+## 11. Solid-to-Basic migration check
+
+The six retired Solid IDs are a different case because their canonical IDs changed:
 
 ```text
-PaintZ + temporary official pack
+PZ-S-RGR -> PZ-B-RGR
+PZ-S-FDE -> PZ-B-FDE
+PZ-S-FGY -> PZ-B-FGY
+PZ-S-UGY -> PZ-B-UGY
+PZ-S-BLK -> PZ-B-BLK
+PZ-S-WHT -> PZ-B-WHT
 ```
 
-and:
-
-```text
-PaintZ + Standard Pack + temporary official pack
-```
-
-Acceptance:
-
-- the temporary official pack works without Standard Pack installed;
-- both official packs register unique `PZ-*` finishes together;
-- both reference `PZ_PaintZOfficial`;
-- neither declares `PZ`;
-- duplicate finish IDs are still rejected if deliberately introduced.
-
-This test proves the reason for the architecture change: official content packages are independent peers.
+When historical persisted state exists, configure exact mappings through `$profile:PaintZ/paintz_stale_finishes.json` and verify migration/persistence through the normal stale-finish acceptance procedure. The content packs do not activate these mappings automatically.
 
 ## Acceptance
 
-The core-owned namespace design is acceptable when:
+The architecture remains acceptable when:
 
 - PaintZ builds/loads with one `PZ_PaintZOfficial` namespace owner;
-- Standard Pack emits no namespace owner;
-- Standard Pack finishes register against the core owner;
-- PaintZ runs without Standard Pack;
-- Standard Pack depends only on PaintZ for runtime/namespace access;
-- a second independent official test pack works with and without Standard Pack;
+- official packs emit no namespace owner and register against the core owner;
+- PaintZ runs without official content packs;
+- Standard, Field and Vanilla each depend only on PaintZ for runtime/namespace access;
+- multiple independent official packs work together and separately;
 - duplicate finish-ID and namespace collision protections remain deterministic;
+- Basic procedural surfaces and asset-backed surfaces both work through the same runtime registry;
+- packaging-only moves preserve unchanged IDs without migration;
+- explicit stale-finish migration handles only deliberately retired identities;
 - painting, stripping, synchronization and persistence behavior remain intact;
 - no PaintZ-caused config/script errors remain.
-
-Only after this coordinated acceptance should these branches be considered candidates for integration.
