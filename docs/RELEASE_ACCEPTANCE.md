@@ -24,7 +24,7 @@ A release is accepted only when all mandatory checks pass.
 - [ ] A deliberate duplicate complete `PZ-*` finish ID is disabled rather than overwritten by load order.
 - [ ] A content pack attempting to redeclare `PZ` conflicts with the core owner and does not replace it.
 - [ ] Unassigned reserved `PZ?` namespaces remain unavailable unless explicitly assigned by a future API decision.
-- [ ] Moving an unchanged official finish between official content packs preserves its complete `PZ-*` ID and requires no persistence alias/migration.
+- [ ] Moving an unchanged official finish between official content packs preserves its complete `PZ-*` ID and requires no persistence migration.
 
 ## Universal architecture
 
@@ -36,6 +36,7 @@ A release is accepted only when all mandatory checks pass.
 - [ ] Policy code does not use a closed weapon/magazine/attachment enum as the extensibility mechanism.
 - [ ] A non-weapon/non-magazine `ItemBase` family can be enabled by JSON only and receives the same state/persistence behavior without script changes.
 - [ ] No per-class compatibility registry or painted subclasses exist.
+- [ ] Stale-finish migration/pruning uses the same shared `ItemBase` logical state and introduces no per-category persistence path.
 
 ## Runtime policy
 
@@ -55,6 +56,27 @@ A release is accepted only when all mandatory checks pass.
 - [ ] Excluding or removing a domain from an already-painted item does not remove its finish or block stripping.
 - [ ] The bundled default includes weapon/magazine domains, common weapon/pistol/suppressor slot families and `SmallProtectorCase`, with no blanket crossbow exclusion.
 
+## Stale finish recovery
+
+- [ ] `$profile:PaintZ/paintz_stale_finishes.json` is created from the bundled default only when missing.
+- [ ] The bundled default is non-destructive: `prune_unknown = false` and `migrations = {}`.
+- [ ] A currently registered source finish is never migrated or pruned, even when listed in `migrations`.
+- [ ] An exact unregistered OLD -> registered NEW mapping migrates the existing item without replacing its classname/object.
+- [ ] A successful migration changes the authoritative logical ID to NEW and NEW persists after restart.
+- [ ] A migration whose destination is not currently registered preserves OLD and logs a warning.
+- [ ] Migration chains are rejected during config validation.
+- [ ] Wildcard migration IDs are rejected during config validation.
+- [ ] A matching migration takes precedence over `prune_unknown`.
+- [ ] A matching migration that fails does not fall through to pruning.
+- [ ] `prune_unknown = true` clears an unmapped unregistered PaintZ assignment on encounter.
+- [ ] Pruning restores the configured/original texture when a safe selection is available.
+- [ ] Pruning with no safe recoverable selection clears logical stale state without guessing a texture selection.
+- [ ] Policy exclusion alone never makes a registered finish stale.
+- [ ] Successful runtime config reload affects the item's next encounter and does not scan/mutate all entities immediately.
+- [ ] Each item is evaluated at most once per successful config revision, preventing action-condition warning spam.
+- [ ] Failed periodic reload retains the last-known-good stale-recovery config.
+- [ ] Startup without a valid stale-recovery config preserves stale state.
+
 ## CF persistence
 
 - [ ] `CfgMods.PaintZ.storageVersion` is positive and CF is a declared dependency.
@@ -65,10 +87,10 @@ A release is accepted only when all mandatory checks pass.
 - [ ] Repaint A -> B persists B.
 - [ ] Strip -> restart remains unpainted.
 - [ ] Runtime policy exclusion does not prevent restoration.
-- [ ] Missing finish definition preserves the logical ID without implicit strip.
+- [ ] Missing finish definition preserves the logical ID with the default stale-recovery config.
 - [ ] Pre-PaintZ/unpainted items load normally with no PaintZ payload required.
 - [ ] Late-joining client sees restored finish.
-- [ ] Save with PaintZ removed but CF retained, then restore PaintZ: PaintZ state returns.
+- [ ] Save with PaintZ removed but CF retained, then restore PaintZ: PaintZ state returns unless explicitly migrated/pruned after restoration.
 - [ ] Removing CF as well is documented as outside the persistence guarantee.
 
 ## Selection / strip regression
@@ -80,5 +102,6 @@ A release is accepted only when all mandatory checks pass.
 - [ ] Category words such as `optic` or `light` alone do not blacklist an otherwise safe body selection.
 - [ ] Paint cans never offer Strip Paint; the dedicated stripper does.
 - [ ] Ruined cans and ruined targets cannot receive new paint.
+- [ ] Stale migration still requires a safe paintable selection and never guesses a protected/ambiguous surface.
 
-`tools/sandbox/PaintZ_FinishSmokeTest.c` and the Paint Pack API fixture remain opt-in smoke tests. Multiplayer UI/visual replication and persistence restart scenarios require live-server acceptance testing.
+`tools/sandbox/PaintZ_FinishSmokeTest.c` and the Paint Pack API fixture remain opt-in smoke tests. Multiplayer UI/visual replication, stale migration/prune persistence, and persistence restart scenarios require live-server acceptance testing.

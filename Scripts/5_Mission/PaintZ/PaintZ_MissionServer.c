@@ -6,6 +6,7 @@ modded class MissionServer
         PaintZ_RuntimeDocs.Refresh();
         PaintZ_PaintPackRegistry.EnsureInitialized();
         PaintZ_PatternScaling.StartServer();
+        PaintZ_StaleFinishRecovery.StartServer();
         PaintZ_ActionTuning.StartServer();
         PaintZ_ItemPolicy.StartServer();
     }
@@ -14,6 +15,7 @@ modded class MissionServer
     {
         PaintZ_ItemPolicy.StopServer();
         PaintZ_ActionTuning.StopServer();
+        PaintZ_StaleFinishRecovery.StopServer();
         PaintZ_PatternScaling.StopServer();
         super.OnMissionFinish();
     }

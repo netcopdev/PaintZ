@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "reload_seconds": 10,
+  "prune_unknown": false,
+  "migrations": {}
+}

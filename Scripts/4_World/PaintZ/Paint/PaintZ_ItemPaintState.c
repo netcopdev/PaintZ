@@ -32,6 +32,7 @@ modded class ItemBase
     protected int m_PaintZPatternScalePercent = 100;
     protected bool m_PaintZHasState;
     protected bool m_PaintZRestoreQueued;
+    protected int m_PaintZStaleRecoveryRevision = -1;
 
     void ItemBase()
     {
@@ -103,6 +104,19 @@ modded class ItemBase
         return m_PaintZHasState;
     }
 
+    void PaintZ_ResolveStaleFinishState()
+    {
+        if (!GetGame() || !GetGame().IsServer() || !m_PaintZHasState)
+            return;
+
+        int recoveryRevision = PaintZ_StaleFinishRecovery.GetRevision();
+        if (recoveryRevision <= 0 || m_PaintZStaleRecoveryRevision == recoveryRevision)
+            return;
+
+        m_PaintZStaleRecoveryRevision = recoveryRevision;
+        PaintZ_StaleFinishRecovery.Resolve(this);
+    }
+
     protected string PaintZ_GetDisplayFinishName()
     {
         return PaintZ_ItemDisplay.ResolveFinishName(m_PaintZPaintCode);
@@ -151,6 +165,7 @@ modded class ItemBase
         m_PaintZPaintCodeHash = PaintZ_PaintStateRuntime.GetNetworkHash(paintCode);
         m_PaintZPatternScalePercent = 100;
         m_PaintZHasState = paintCode != PaintZ_PaintConstants.PAINT_NONE;
+        m_PaintZStaleRecoveryRevision = -1;
     }
 
     void PaintZ_QueueLoadedPaintRestore()
@@ -170,6 +185,8 @@ modded class ItemBase
 
     void PaintZ_RestoreLoadedPaint()
     {
+        PaintZ_ResolveStaleFinishState();
+
         int restoredSelection = -1;
         int restoredScalePercent = 100;
         PaintZ_PaintStateRuntime.RestorePersistedVisual(this, m_PaintZPaintCode, restoredSelection, restoredScalePercent);

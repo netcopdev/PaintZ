@@ -13,6 +13,7 @@ PaintZ owns runtime mechanics and the runtime registry:
 - painting and stripping actions;
 - eligibility/policy and model-safety checks;
 - synchronization and persistence;
+- explicit server-side stale-finish recovery for persisted unregistered IDs;
 - resolution of a logical finish ID to its registered runtime surface representation;
 - namespace and finish-registration validation;
 - collision handling;
@@ -285,7 +286,7 @@ Normal packs must not require generated per-finish action subclasses. Painted ta
 
 Complete finish IDs include the type letter, so `NCP-B-FDE` and `NCP-S-FDE` may coexist. DayZ config classnames are a separate namespace and must still be unique; PackKit detects generated can-class collisions and allows an explicit distinct classname where required.
 
-## 10. Persistence and missing packs
+## 10. Persistence, missing packs and stale recovery
 
 PaintZ persists only the complete logical finish ID, for example:
 
@@ -298,7 +299,7 @@ NCP-C-FTN
 
 PaintZ does not persist a Basic finish's RGB/procedural descriptor separately.
 
-If a finish is not registered later because its content pack is removed, invalid, conflicted, or temporarily unavailable:
+If a finish is not registered later because its content pack is removed, invalid, conflicted, or temporarily unavailable, the default behavior is conservative:
 
 - the persisted finish ID remains historical logical state;
 - the item is not implicitly stripped;
@@ -308,6 +309,28 @@ If a finish is not registered later because its content pack is removed, invalid
 - if the same finish ID becomes valid again later, it can resolve again.
 
 Therefore moving an official finish between independent official content packs is persistence-safe when its complete `PZ-*` ID is unchanged.
+
+### Explicit server-side stale recovery
+
+A server administrator may explicitly configure persistence repair through `$profile:PaintZ/paintz_stale_finishes.json`.
+
+A stored finish is stale only when its exact ID is not currently registered. Recovery never remaps or prunes a source ID that is currently registered, regardless of whether a matching mapping exists in the JSON.
+
+For a stale ID, PaintZ applies the following order:
+
+1. exact configured migration to a currently registered destination;
+2. if no migration exists, optional `prune_unknown` cleanup;
+3. otherwise preserve the historical state.
+
+A matching migration takes precedence over pruning. If its destination is unavailable, no safe target selection can be resolved, or the replacement cannot be applied, the stale state is preserved rather than falling through to prune.
+
+Migration mappings are exact IDs only. Wildcards and migration chains are not supported. Successful migration changes the item's authoritative logical finish ID to the destination, which is then persisted normally by CF ModStorage. No alias or migration metadata is stored with the item.
+
+`prune_unknown` is deliberately destructive for otherwise-unmapped stale state. It clears only PaintZ logical state; where a safe selection can be resolved PaintZ restores its configured/original texture first. It does not make policy-excluded but registered finishes stale and it does not operate on arbitrary non-PaintZ textures.
+
+Recovery is lazy. Loading or reloading the stale-recovery JSON does not scan the world or persistence database. A successful config reload affects an item's next relevant state encounter. Invalid reloads retain the previous valid configuration. The bundled default is non-destructive: pruning is off and migrations are empty.
+
+This facility is runtime persistence repair owned by PaintZ core. It does not change content-pack registration semantics, namespace ownership, or load-order collision rules.
 
 ## 11. Dependency direction
 
@@ -335,7 +358,7 @@ Paint pack -> PackKit at runtime
 official content pack -> another official content pack merely to access PZ
 ```
 
-PaintZ core may own the `PZ` namespace declaration and generic Basic support without owning any `PZ-*` finish content.
+PaintZ core may own the `PZ` namespace declaration, generic Basic support and stale-state recovery without owning any `PZ-*` finish content.
 
 ## 12. PackKit obligations
 
@@ -355,7 +378,9 @@ PackKit must follow this contract when generating API-v1 packs. At minimum it mu
 - reject `pattern` and `appearance_profile` treatment on a Basic finish;
 - continue supporting one owner plus dependent satellites for third-party multi-PBO families;
 - generate thin finish can classes and finish-registration data;
-- keep runtime mechanics in PaintZ.
+- keep runtime mechanics and stale-state recovery in PaintZ.
+
+PackKit does not emit or own server stale-recovery mappings. Those mappings are an administrator/runtime concern because they act on persisted server state rather than declaring content-pack identity.
 
 ## 13. Official content-pack obligations
 
@@ -397,13 +422,13 @@ Normally not identity-breaking:
 - moving an unchanged `PZ-*` finish between official content packs;
 - adding a new `PZ-B-*` Basic counterpart alongside an existing `PZ-S-*` Solid finish.
 
-Do not add migration/alias machinery speculatively. If a real released breaking change needs migration, design it explicitly against persisted data at that time.
+Do not use stale migration as a routine substitute for stable IDs. When a real released identity change requires repair, an administrator may map the retired unregistered ID directly to the intended currently registered replacement through PaintZ's stale-recovery configuration. Keep such mappings only for the migration window that is operationally required. This is persistence repair, not a permanent registry alias and not permission to reuse an old ID for unrelated meaning.
 
 ## 16. Source of truth across repositories
 
 This file in the PaintZ repository is authoritative for runtime interoperability semantics.
 
-- `netcopdev/PaintZ` owns the runtime API contract, generic runtime behavior, and official `PZ` namespace identity.
+- `netcopdev/PaintZ` owns the runtime API contract, generic runtime behavior, official `PZ` namespace identity, persistence and stale-state recovery.
 - `netcopdev/PaintZ-PackKit` must generate/validate against it.
 - `netcopdev/PaintZ-Standard-Pack` must conform to it as an independent official reference content pack.
 - future official content-pack repositories must follow the same peer dependency model.
