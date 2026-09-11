@@ -2,23 +2,15 @@
 
 ## Mandatory Git preflight
 
-Before modifying, creating, deleting, renaming, or generating any repository file, inspect:
+Before modifying repository files, inspect the active branch, repository status and latest commit. Do not put unrelated work on an existing feature/fix branch and never discard, reset, stash, rewrite or move user work merely to make the workspace convenient.
 
-```text
-git branch --show-current
-git status --short
-git log -1 --oneline
-```
-
-Do not put unrelated work on an existing feature/fix branch. A non-main branch belongs to its named task unless the user explicitly says otherwise. Never discard, reset, stash, rewrite, or move user work merely to make the workspace convenient.
-
-Tightly related corrections belong on the existing feature branch. New independent work normally starts from current `main` or from the feature branch it explicitly extends. `dev` is for integration testing, not normal feature development.
+New independent work normally starts from current `main` or from the feature branch it explicitly extends. `dev` is for integration testing, not normal feature development.
 
 ## Documentation progression
 
-Documentation is part of the implementation, not a follow-up task. When a feature/fix changes runtime behavior, configuration, persistence, APIs, build/release workflow, supported content, or another documented contract/state, update the relevant documentation on the same branch and merge it with the implementation.
+Documentation is part of implementation. Changes to runtime behavior, configuration, persistence, APIs, build/release workflow, supported content or another documented contract must update the relevant README/docs/config help on the same branch.
 
-A purely internal refactor with no documented external effect may require no doc edit, but that must be a deliberate determination. Do not knowingly leave README/docs/config help describing an older state after merging the change that superseded it.
+Do not knowingly leave documentation describing superseded behavior after implementation changes.
 
 ---
 
@@ -36,7 +28,7 @@ A player holds a PaintZ finish applicator, targets an eligible object, and Paint
 6. synchronizes one logical finish state;
 7. persists that state with the physical item.
 
-PaintZ must not require compatibility implementation for every classname, slot family, or target category.
+PaintZ must not require compatibility implementation for every classname, slot family or target category.
 
 ---
 
@@ -44,22 +36,13 @@ PaintZ must not require compatibility implementation for every classname, slot f
 
 ## Categories and attachment families are configuration, not code
 
-Weapons and detachable magazines are historical/default domains, not architectural special cases.
+Weapons and detachable magazines are default domains, not architectural special cases.
 
-For any normal `ItemBase`-derived inventory family, adding support must require JSON configuration only, provided the runtime model exposes a safe paintable hidden selection.
+For a normal `ItemBase`-derived inventory family, adding support must require JSON configuration only when the runtime model exposes a safe paintable hidden selection.
 
-Examples include:
+Examples include suppressors, muzzle devices, handguards, stocks, grips, bipods, optics, lights, clothing, helmets, backpacks, containers and tools.
 
-- suppressors and muzzle devices;
-- handguards and stocks;
-- grips and bipods;
-- optics/scopes/sights;
-- weapon and pistol flashlights;
-- clothing, helmets and backpacks;
-- containers whose models expose safe paintable selections;
-- tools and other ordinary inventory items.
-
-Adding one of these must **not** require:
+Adding one of these must not require:
 
 - a new PaintZ state class;
 - a new persistence hook;
@@ -68,9 +51,9 @@ Adding one of these must **not** require:
 - a new paint dispatch branch;
 - a new classname compatibility table.
 
-If a proposed implementation makes an ordinary inventory category require Enforce Script changes, stop and redesign it unless a verified DayZ engine limitation genuinely forces an exception.
+If an ordinary inventory category appears to require Enforce Script changes, first prove that a DayZ engine limitation genuinely prevents the generic design.
 
-The JSON-only guarantee does not automatically extend to unrelated non-`ItemBase` hierarchies such as static world objects, buildings or vehicles. Those require a separate explicit design decision.
+The JSON-only guarantee does not automatically extend to unrelated non-`ItemBase` hierarchies such as static world objects, buildings or vehicles.
 
 ---
 
@@ -81,14 +64,14 @@ PaintZ logical state belongs once on `ItemBase`.
 The shared state is responsible for:
 
 - canonical finish ID;
-- current resolved paint selection;
+- resolved paint selection;
 - network synchronization;
 - persistent logical assignment;
 - post-load visual restoration.
 
-`PaintZ_PaintTarget` must dispatch through the shared `ItemBase` state path. Do not branch into weapon/magazine/attachment/clothing-specific state implementations.
+`PaintZ_PaintTarget` must use the shared `ItemBase` state path. Do not branch into weapon/magazine/attachment/clothing-specific state implementations.
 
-Persistence must not inspect runtime domains or policy. If an item was painted previously, removing it from a domain or excluding it later must not erase the historical finish.
+Persistence must not inspect runtime eligibility policy. If an item was painted previously, later policy exclusion must not erase its state.
 
 ---
 
@@ -98,28 +81,27 @@ PaintZ requires Community Framework and uses **CF ModStorage**.
 
 The production persistence hook belongs once at `ItemBase` through `CF_OnStoreSave` / `CF_OnStoreLoad`.
 
-Do not replace this with broad native `ItemBase::OnStoreSave` / `OnStoreLoad` appends. Derived DayZ classes may serialize additional data after calling `super`, so inserting PaintZ bytes at a broad native base layer can place them in the middle of an existing subclass stream and break legacy/third-party persistence.
+Do not replace this with broad native `ItemBase::OnStoreSave` / `OnStoreLoad` appends. Derived DayZ classes may serialize additional data after `super`, so broad native base-layer appends can corrupt subclass streams.
 
 Do not reintroduce:
 
-- `Weapon_Base` PaintZ persistence hooks;
-- `MagazineStorage` PaintZ persistence hooks;
+- weapon-specific PaintZ persistence hooks;
+- magazine-specific PaintZ persistence hooks;
 - per-category persistence code;
-- sidecar entity databases unless a future explicit redesign requires one.
+- sidecar entity databases without an explicit redesign.
 
-Persist only logical data needed to reconstruct the finish, normally the canonical PaintZ finish ID. Do not persist derived texture paths, material paths, hidden-selection indexes, policy decisions, cached inspection results, or filesystem paths.
+Persist only logical data needed to reconstruct the finish, normally the canonical PaintZ finish ID. Do not persist texture paths, material paths, hidden-selection indexes, policy decisions, cached inspection results or filesystem paths.
 
 Required behavior:
 
 - pre-PaintZ/unpainted items load normally when no PaintZ ModStorage context exists;
-- malformed/unsupported PaintZ state must never make the underlying DayZ item fail to load;
-- unknown finish IDs remain logical historical state and must not become an implicit strip;
-- runtime policy is not consulted during restore;
-- visual restore may be deferred narrowly until model/hidden selections are safe to access;
-- if PaintZ is temporarily unloaded while CF remains loaded, CF's unloaded-mod preservation should retain the opaque PaintZ payload;
+- malformed/unsupported PaintZ state must never make the underlying item fail to load;
+- unknown finish IDs remain historical logical state and must not become an implicit strip;
+- runtime eligibility policy is not consulted during restore;
+- temporarily missing content does not erase persisted identity;
 - removing CF as well is outside the persistence guarantee.
 
-`CfgMods.PaintZ.storageVersion` is the schema version source for CF ModStorage. Preserve backward compatibility when it changes.
+`CfgMods.PaintZ.storageVersion` is the CF ModStorage schema version source.
 
 ---
 
@@ -129,113 +111,62 @@ Painting modifies the existing object instance. Never replace the target with a 
 
 Preserve, as applicable:
 
-- classname;
-- object/network identity;
+- classname and object/network identity;
 - persistence identity;
-- health;
-- quantity;
-- ammunition;
-- chamber/FSM state;
-- attachments;
-- cargo;
-- inventory location;
-- parent/container relationships;
-- third-party state owned by the item/mod.
+- health and quantity;
+- ammunition and chamber/FSM state;
+- attachments and cargo;
+- inventory location and parent/container relationships;
+- unrelated third-party state.
 
-The normal visual operation is `SetObjectTexture()` or the verified current equivalent. Preserve the target's existing RVMat/material unless a separately designed finish explicitly requires material behavior.
+The normal visual operation is `SetObjectTexture()` or the verified current equivalent. Preserve the target's existing material unless a separately designed finish explicitly requires material behavior.
 
 ---
 
 # Runtime eligibility policy
 
-`$profile:PaintZ/paintz_items.json` is an administrative layer for **new painting/repainting**. It is not the persistence schema and not a classname compatibility database.
+`$profile:PaintZ/paintz_items.json` controls **new painting/repainting**. It is not the persistence schema and not a classname compatibility database.
 
-## Selector schema consistency invariant
+## Selector consistency
 
-Where a selector can sensibly accept either one value or several alternatives, expose a singular field and a plural array field. Singular and plural forms belong to the same OR group.
-
-For selector families available in both domains and rules, keep the JSON names and semantics identical in both places. Current shared families are:
+Shared selector families are:
 
 - `type` / `types`;
 - `class_pattern` / `class_patterns`;
 - `inventory_slot` / `inventory_slots`;
 - `inventory_slot_pattern` / `inventory_slot_patterns`.
 
-When adding a future shared selector family, do not implement it in only one location, do not use different names in domains and rules, and do not omit a sensible plural form. Extend config classes, validation/normalization, matching, server/client synchronization, bundled examples and documentation together.
+Singular and plural values in one family form one OR group. Different selector families inside one domain/rule are AND.
 
-Within one selector family, all supplied singular/plural values are OR. Different selector families inside one domain/rule object are AND.
+Future shared selector families must use consistent naming and semantics in both domains and rules.
 
 ## Domains
 
-Domains determine whether a target is relevant enough to offer PaintZ feedback/new painting.
+Domains are a positive OR-list. They may combine type, classname and declared-slot selectors.
 
-A domain may contain any combination of:
+Slot matching must inspect the target class's **declared compatible `inventorySlot` values**, not its current attachment location.
 
-- `type`: one DayZ base/config type;
-- `types`: OR-list of DayZ base/config types;
-- `class_pattern`: one case-insensitive classname wildcard using `*` / `?`;
-- `class_patterns`: OR-list of classname wildcards;
-- `inventory_slot`: one exact declared compatible `inventorySlot`;
-- `inventory_slots`: OR-list of exact declared compatible slots;
-- `inventory_slot_pattern`: one wildcard over declared compatible `inventorySlot` values;
-- `inventory_slot_patterns`: OR-list of declared-slot wildcards.
+Do not introduce a classname-to-slot registry. Read inherited config data generically from the target's actual config root.
 
-Different supplied selector families inside one domain are AND. Singular and plural values within one family are OR. Separate domain objects are OR.
-
-### Slot matching is class/config based
-
-Slot matching must inspect the target class's **declared compatible `inventorySlot` values**, not the item's current attachment location.
-
-A loose optic, flashlight, suppressor, stock, handguard, etc. lying on the ground must still match the slots it declares it can occupy.
-
-Do not introduce a classname-to-slot registry. Read inherited config data generically from the target's actual config root (`CfgWeapons`, `CfgMagazines`, `CfgVehicles`, or another verified root if future supported items require it).
-
-Slot names and slot wildcard matching are case-insensitive. Unknown/modded slot names are valid policy data and must not require PaintZ source changes.
+Unknown/modded slot names are valid policy data and must not require source changes.
 
 ## Rules
 
 Rules are ordered include/exclude policy. Last matching rule wins.
 
-`type` / `types` are optional scope. Their values may be:
-
-- omitted / `all`;
-- any valid DayZ base/config type;
-- legacy `weapon` / `magazine` aliases only for backward compatibility.
-
-If both `type` and `types` are present they form one OR scope group. If neither supplies a value, scope normalizes to `all`.
-
-Each rule must also have at least one non-type selector from:
-
-- `class_pattern` / `class_patterns`;
-- `inherits` / `inherits_any`;
-- `inventory_slot` / `inventory_slots`;
-- `inventory_slot_pattern` / `inventory_slot_patterns`.
-
-Multiple selector families in one rule are valid and are ANDed. Multiple alternatives inside one family are ORed. Singular and plural forms of the same family combine into the same OR group.
-
-Do not use a closed enum whose extension requires code changes for each new category or attachment family.
+Type scope may use valid DayZ base/config types plus legacy `weapon` / `magazine` aliases for backward compatibility.
 
 An include rule means the item may be considered; it never bypasses hidden-selection/model safety.
 
-Policy exclusion or domain removal must not strip existing paint and must not block Strip Paint.
+Policy exclusion or domain removal must not strip existing paint or block Strip Paint.
 
 ---
 
 # No hard category exclusions
 
-Do **not** hard-exclude sensible inventory families such as:
+Do not hard-exclude sensible inventory families such as optics, flashlights, suppressors, muzzle devices, stocks, handguards, grips, containers or clothing.
 
-- optics/scopes/sights;
-- flashlights/lights;
-- suppressors;
-- muzzle devices;
-- stocks/handguards/grips;
-- containers;
-- clothing.
-
-Whether those categories are relevant is a JSON policy decision. Whether a specific model is technically paintable is a model/selection-safety decision.
-
-Two items in the same family may legitimately differ: one optic may expose a safe body/camo/housing selection while another exposes only lens/reticle surfaces and remains unsupported.
+Whether a category is relevant is a JSON policy decision. Whether a specific model is technically paintable is a model/selection-safety decision.
 
 ---
 
@@ -243,15 +174,9 @@ Two items in the same family may legitimately differ: one optic may expose a saf
 
 Do not parse JSON every frame or every action evaluation.
 
-Parse and validate a detached candidate, then atomically replace the active config only when valid. A failed reload retains the last-known-good config. Startup with no valid config fails closed for new painting.
+Parse and validate a detached candidate, then replace the active config only when valid. A failed reload retains the last-known-good config. Startup with no valid required config fails safely for the affected feature.
 
-Validate schema version, required fields, action values, selector groups, singular/plural arrays, wildcard data, and type/inheritance references where the current API permits reliable validation.
-
-Do not reject unknown slot names merely because they come from third-party content; slot selectors are strings intentionally designed to support modded items.
-
-Keep operational explanations in the adjacent README/docs, not pseudo-comments inside JSON.
-
-Policy/domain caches may remain per runtime classname because declared compatible slots are class/config data, not per-instance attachment state.
+Keep operational explanations in adjacent README/docs, not pseudo-comments inside JSON.
 
 ---
 
@@ -259,34 +184,15 @@ Policy/domain caches may remain per runtime classname because declared compatibl
 
 Compatibility comes from the actual target object/model, not a classname registry.
 
-Use verified runtime APIs/current config fallback to inspect hidden selections. Never invent a selection.
+Use verified runtime APIs/config fallback to inspect hidden selections. Never invent a selection.
 
-Prefer plausible body selections such as:
+Prefer plausible body selections such as `camo`, `zbytek`, `body`, `receiver`, `weapon`, `mag`, `magazine`, `housing`, `shell` and `frame`.
 
-- `camo`;
-- `zbytek`;
-- `body`, `body1`, `body2`;
-- `receiver`;
-- `weapon`;
-- `mag`, `magazine`;
-- `housing`;
-- `shell`;
-- `frame`.
+Reject clearly functional/non-body selections involving glass/lens, reticle, display/screen, LED/emissive/glow, flame or other functional surfaces.
 
-Reject clearly functional/non-body selections involving:
+Do not reject a selection merely because its name contains a broad category word such as `optic` or `light`.
 
-- glass/lens;
-- reticle;
-- display/screen;
-- LED/emissive/glow;
-- flame;
-- other clearly functional visual surfaces.
-
-Do **not** reject a selection merely because its name contains broad category words such as `optic` or `light`; `optic_body` and `flashlight_body` can be legitimate paintable housings.
-
-If exactly one non-blocked selection exists, it may be a conservative fallback. If several remain ambiguous, reject the target rather than guessing.
-
-A false negative is preferable to painting a lens, reticle, display or emissive component, but safety must be selection-specific rather than category-specific.
+If several candidate selections remain ambiguous, reject the target rather than guessing.
 
 ---
 
@@ -294,25 +200,15 @@ A false negative is preferable to painting a lens, reticle, display or emissive 
 
 Painting is server-authoritative.
 
-At action completion revalidate:
+At action completion revalidate applicator state/quantity, ruined state, target state, domain membership, runtime policy, finish ID, model capability/selection and relevant action context/range.
 
-- applicator type/state;
-- applicator quantity;
-- ruined state;
-- target state;
-- domain membership;
-- runtime policy;
-- finish ID;
-- model capability/selection;
-- relevant action context/range.
+Clients must not be trusted to choose arbitrary finish IDs, textures, selections or policy outcomes.
 
-Clients may display actions and visuals but must not be trusted to choose arbitrary finish IDs, textures, selections, slot-policy bypasses, or policy results.
-
-Runtime policy synchronization must serialize every supported selector field consistently on server and client. This includes every singular field and every plural selector array. If the wire shape changes, update both write/read paths together and consider compatibility consequences.
+Runtime policy synchronization must serialize every supported selector consistently on server and client.
 
 Use one logical PaintZ state source. Persistence and network replication are separate responsibilities but must not duplicate state.
 
-Late-joining/relevant clients must resolve the authoritative finish correctly.
+Late-joining/relevant clients must resolve authoritative finish state correctly.
 
 ---
 
@@ -320,7 +216,7 @@ Late-joining/relevant clients must resolve the authoritative finish correctly.
 
 A ruined PaintZ applicator cannot apply paint. A ruined target cannot receive new paint.
 
-Persisted historical paint restoration is not a new paint application; do not erase or refuse historical state merely because the target is now ruined or excluded.
+Persisted historical paint restoration is not a new application; do not erase historical state merely because the target later becomes ruined or excluded.
 
 Validate ruined conditions again on the authoritative server at completion.
 
@@ -328,32 +224,27 @@ Validate ruined conditions again on the authoritative server at completion.
 
 # Stripping
 
-Stripping is separate from new-paint policy.
+Stripping is separate from new-paint eligibility policy.
 
-An already-painted item must remain strippable even when:
-
-- its class is excluded;
-- its domain is removed;
-- its current slot family is no longer configured;
-- the current policy would deny new painting.
+An already-painted item must remain strippable even when its class/domain/slot family is no longer eligible for new painting.
 
 Strip the existing item; do not replace it. Restore the intended unpainted texture/state and clear the logical persisted PaintZ assignment.
 
-Do not scatter consumption magic numbers through action code; keep such design data centralized/configurable where practical.
+Keep consumption/timing design data centralized/configurable rather than scattering magic numbers through action code.
 
 ---
 
 # Finish identity and assets
 
-Paint IDs are stable developer-authored logical identifiers such as `PZ-C-FTN`, `PZ-B-BLK`, or a third-party `NCP-S-FDE`.
+Paint IDs are stable developer-authored logical identifiers such as `PZ-C-FTN`, `PZ-B-BLK` or a third-party `NCP-S-FDE`.
 
-IDs must be unique and should remain stable after release. Display-name/color corrections should not require changing the logical ID. Deliberate breaking migrations, such as the approved September 2026 retirement of six `PZ-S-*` identities in favor of `PZ-B-*` replacements, must be explicitly documented and handled through the stale-finish mechanism rather than silently repurposing IDs.
+IDs must be unique and should remain stable after release. Display-name/color corrections should not require changing the logical ID. A deliberate breaking identity change must be documented and handled through the stale-finish mechanism rather than silently repurposing an existing ID.
 
-Generated assets must be deterministic and reproducible. Fix generator/source data rather than hand-editing generated outputs. Official finish/can generation belongs to PaintZ-PackKit and the content-pack repositories, not to PaintZ core.
+Generated assets must be deterministic and reproducible. Fix generator/source data rather than hand-editing generated output.
 
 Do not add third-party textures, camouflage, logos, fonts, graphics or other assets without a license that permits intended use/redistribution.
 
-Painted-surface assets must not bake inappropriate fabric/geometry-specific appearance into generic metal/polymer use. Pattern assets intended for repetition should be seamless/tileable.
+Pattern assets intended for repetition should be seamless/tileable and should not bake inappropriate fabric/geometry-specific appearance into generic surfaces.
 
 ---
 
@@ -361,48 +252,32 @@ Painted-surface assets must not bake inappropriate fabric/geometry-specific appe
 
 Treat third-party content as unknown until inspected.
 
-Compatibility should come from:
+Compatibility should come from runtime type/inheritance, declared inventory-slot config, actual hidden selections, generic safe heuristics and optional administrator policy.
 
-- runtime type/inheritance;
-- declared inventory-slot config;
-- actual hidden selections;
-- generic safe heuristics;
-- optional administrator policy.
-
-Do not add a compatibility patch merely because one modded item initially fails. Determine whether it is outside policy, declares an unexpected slot, exposes no safe hidden selection, or violates normal engine behavior.
-
-A third-party item that breaks the normal DayZ `super` persistence chain may remain an external compatibility limitation; do not add classname hacks to compensate without an explicit design decision.
+Do not add a compatibility patch merely because one modded item initially fails. Determine whether it is outside policy, declares unexpected slots, exposes no safe hidden selection or violates normal engine behavior.
 
 ---
 
 # DayZ / CF API discipline
 
-Do not invent APIs, callbacks, inheritance relationships, config semantics, replication behavior, or serializer guarantees.
+Do not invent APIs, callbacks, inheritance relationships, config semantics, replication behavior or serializer guarantees.
 
 When uncertain, inspect current authoritative/public sources first:
 
-- `BohemiaInteractive/DayZ-Script-Diff` for DayZ script/config access behavior;
+- `BohemiaInteractive/DayZ-Script-Diff` for DayZ script/config behavior;
 - current `Arkensor/DayZ-CommunityFramework` source/docs for CF ModStorage.
-
-Important verified relationships:
-
-- DayZ defines `InventoryItemSuper` / `InventoryItemBase` as `ItemBase` aliases;
-- declared attachment compatibility can be read from config `inventorySlot` values with config APIs;
-- current attachment state is not required for slot-policy matching.
 
 When source reality conflicts with documentation, fix the documentation/architecture rather than forcing an obsolete assumption.
 
 ---
 
-# Scope and coding discipline
+# Scope and completion discipline
 
 Keep changes focused and reviewable.
 
 - Prefer generic helpers over category branches.
 - Centralize shared rules.
-- Avoid unnecessary framework layers.
-- Avoid per-frame work and repeated filesystem parsing.
-- Avoid unnecessary RPC traffic.
+- Avoid unnecessary framework layers, per-frame work and RPC traffic.
 - Fail safely.
 - Keep client/server responsibilities explicit.
 - Comments should explain why, especially around engine behavior.
@@ -412,13 +287,12 @@ Before considering work complete:
 
 1. inspect the full diff against the branch base;
 2. remove unrelated changes;
-3. confirm no generated files were hand-edited incorrectly;
+3. confirm generated files were not hand-edited incorrectly;
 4. run available static/generator tests;
-5. run DayZ Tools/server compilation when available;
-6. exercise singular-only, plural-only, and combined singular+plural selector forms;
-7. exercise slot selectors with at least a loose stock/handguard, an optic, a flashlight/suppressor family, and a verified non-slot ItemBase test class;
-8. verify an optic/light exposing only protected functional surfaces remains safely unsupported;
-9. perform live persistence/multiplayer acceptance for lifecycle changes;
-10. update all relevant documentation on the same branch whenever the change affects architecture, behavior, configuration, build/release workflow, persistence, API contracts, or documented project state.
+5. run DayZ Tools/server compilation when relevant and available;
+6. exercise selector forms affected by policy changes;
+7. verify protected functional surfaces remain unsupported;
+8. perform live persistence/multiplayer acceptance for lifecycle changes;
+9. update all relevant documentation on the same branch.
 
 Do not claim an unrun build/test passed.
