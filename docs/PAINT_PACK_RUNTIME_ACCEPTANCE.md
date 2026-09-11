@@ -9,7 +9,7 @@ Static review alone is insufficient for integration. Enforce Script and DayZ con
 Before runtime testing verify:
 
 - PaintZ core declares exactly one official `PZ` namespace owner named `PZ_PaintZOfficial`;
-- PaintZ core contains no individual official finish catalogue/assets/cans and no legacy in-core `paintzgen` content generator;
+- PaintZ core contains no individual official finish catalogue/assets/cans and no in-core finish generator;
 - an official PackKit-generated content pack emits no `CfgPaintZPacks` declaration;
 - official `PZ-*` finishes use `owner = "PZ_PaintZOfficial"`;
 - official content packs depend on `PaintZ_DynamicPaint`, not on another official content pack;
@@ -22,8 +22,6 @@ From current PaintZ `main` or the work branch being validated:
 ```powershell
 pwsh -File .\tools\build.ps1
 ```
-
-PaintZ core no longer accepts or requires the removed `-SkipPaintZGen` path; finish generation belongs to PackKit/content-pack repositories.
 
 Acceptance:
 
@@ -43,7 +41,7 @@ The fixture should contain valid third-party content plus deliberately invalid r
 
 ## 4. Run runtime/smoke tests
 
-Use the normal PaintZ sandbox launcher with the fixture and, where appropriate, one or more current official packs such as Standard, Field or Vanilla.
+Use the normal PaintZ sandbox launcher with the fixture and, where appropriate, one or more current official packs.
 
 Search server/client logs for:
 
@@ -87,22 +85,20 @@ Its generated config must:
 - require `PaintZ_DynamicPaint`;
 - register every finish against `PZ_PaintZOfficial`;
 - use unique local config-child names;
-- contain no dependency on Standard Pack or another official content pack.
+- contain no dependency on another official content pack.
 
 Useful combinations include:
 
 ```text
 PaintZ only
-PaintZ + Standard Pack
-PaintZ + Field Pack
-PaintZ + Vanilla Pack
-PaintZ + Standard Pack + Field Pack + Vanilla Pack
+PaintZ + one official pack
+PaintZ + multiple official packs
 ```
 
 Acceptance:
 
 - PaintZ starts with no official content pack;
-- each official pack works without Standard installed unless it is Standard itself;
+- each official pack works independently;
 - multiple official peer packs contribute distinct `PZ-*` finishes simultaneously;
 - a deliberate duplicate complete `PZ-*` ID is rejected without disabling unrelated unique finishes;
 - no official content pack redeclares `PZ`.
@@ -155,11 +151,11 @@ Before calling missing-pack persistence release-tested, use a disposable persist
 7. verify the original finish ID resolves again on items that were not stripped;
 8. verify stripped items remain stripped.
 
-Removing Standard, Field, Vanilla, Hunter, Pastel, or another official content pack must not remove the `PZ` namespace itself because the namespace belongs to PaintZ core.
+Removing an official content pack must not remove the `PZ` namespace itself because the namespace belongs to PaintZ core.
 
 ## 11. Catalogue-move persistence check
 
-To validate official package reorganization:
+To validate an official packaging reorganization without an identity change:
 
 1. persist an item with a test `PZ-*` finish from official pack A;
 2. remove that finish registration from pack A;
@@ -167,21 +163,19 @@ To validate official package reorganization:
 4. load PaintZ + pack B;
 5. verify the persisted finish resolves without migration/alias data.
 
-The completed Standard -> Field/Vanilla camouflage split follows this rule: ERDL/WDL/FTN/MCT/TGR/UCP retain their `PZ-C-*` identities in Field, while DWD retains `PZ-C-DWD` in Vanilla.
-
 ## 12. Explicit stale-finish migration check
 
-Identity changes are different from packaging-only moves. For the approved September 2026 Solid-to-Basic replacements, validate when applicable:
+To validate a deliberate finish-ID replacement:
 
-1. persist an item with one retired `PZ-S-RGR/FDE/FGY/UGY/BLK/WHT` ID using an older build/fixture;
-2. load current PaintZ and the pack that registers the approved `PZ-B-*` destination;
-3. configure an exact mapping in `$profile:PaintZ/paintz_stale_finishes.json`;
+1. persist an item with a test OLD finish ID using an older build or fixture;
+2. load current PaintZ and a pack that registers the intended NEW destination;
+3. configure an exact OLD -> NEW mapping in `$profile:PaintZ/paintz_stale_finishes.json`;
 4. encounter/load the item;
 5. verify the destination visual and logical ID apply;
 6. save/restart and verify the new ID persists;
 7. verify removing the mapping does not reverse an already completed migration.
 
-The mapping is explicit server policy, not something current Standard/Field packs activate automatically.
+The mapping is explicit server policy and is not activated automatically by content packs.
 
 ## Acceptance decision
 
