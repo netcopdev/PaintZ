@@ -54,7 +54,7 @@ A release is accepted only when all mandatory checks pass.
 - [ ] `*` and `?` matching is case-insensitive and deterministic for both class and slot patterns.
 - [ ] Failed reload retains the last-known-good policy.
 - [ ] Excluding or removing a domain from an already-painted item does not remove its finish or block stripping.
-- [ ] The bundled default includes weapon/magazine domains, common weapon/pistol/suppressor slot families and `SmallProtectorCase`, with no blanket crossbow exclusion.
+- [ ] The bundled default includes weapon/magazine domains and common weapon/pistol/suppressor slot families, with no blanket crossbow exclusion.
 
 ## Stale finish recovery
 
@@ -96,7 +96,7 @@ A release is accepted only when all mandatory checks pass.
 ## Selection / strip regression
 
 - [ ] Known-good weapon and magazine fixtures still paint and strip.
-- [ ] At least one configured attachment and `SmallProtectorCase` paint and strip without category-specific PaintZ code.
+- [ ] At least one configured non-weapon `ItemBase` fixture paints and strips without category-specific PaintZ code.
 - [ ] At least one optic or flashlight with a safe body/camo/housing selection can paint.
 - [ ] An optic/light exposing only functional glass/lens/reticle/display/emissive surfaces remains safely unsupported.
 - [ ] Category words such as `optic` or `light` alone do not blacklist an otherwise safe body selection.
