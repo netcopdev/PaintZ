@@ -3,5 +3,12 @@
   "reload_seconds": 10,
   "enabled": true,
   "default_scale": 1.0,
-  "ranges": []
+  "ranges": [
+    { "max_dimension_m": 0.14, "scale": 3.0 },
+    { "max_dimension_m": 0.17, "scale": 2.0 },
+    { "max_dimension_m": 0.40, "scale": 1.5 },
+    { "max_dimension_m": 1.00, "scale": 1.0 },
+    { "max_dimension_m": 1.25, "scale": 0.75 },
+    { "max_dimension_m": 1.40, "scale": 0.5 }
+  ]
 }
