@@ -74,16 +74,16 @@ Slot selectors inspect the class config, not the item's current attachment
 location. A loose stock, optic, suppressor or flashlight on the ground can still
 match the slots it declares it can occupy.
 
-The shipped config includes Weapon_Base, Magazine_Base, normal weapon/pistol
-attachment slot families, and SmallProtectorCase. These are defaults only, not
-hard-coded PaintZ categories. Other ordinary ItemBase families can be added in
-JSON with no new PaintZ state/persistence/dispatch code.
+The shipped config includes Weapon_Base, Magazine_Base and normal weapon/pistol/
+suppressor attachment slot families. These are defaults only, not hard-coded
+PaintZ categories. Other ordinary ItemBase families can be added in JSON with no
+new PaintZ state/persistence/dispatch code when their models expose a safe
+paintable hidden selection.
 
 Examples:
   {"types":["Weapon_Base","Magazine_Base"]}
   {"inventory_slot_patterns":["weapon*","pistol*","suppressor*"]}
   {"inventory_slots":["weaponOptics","pistolOptics"]}
-  {"class_patterns":["SmallProtectorCase","MyMod_*Case"]}
 
 A compound domain:
   {

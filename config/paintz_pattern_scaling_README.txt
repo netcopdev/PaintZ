@@ -48,7 +48,7 @@ to a whole percentage. For example 0.75 = 75%, 1.0 = 100%, 1.5 = 150%.
 
 Configuration
 -------------
-Example:
+The shipped default is:
 
 {
   "version": 1,
@@ -56,10 +56,12 @@ Example:
   "enabled": true,
   "default_scale": 1.0,
   "ranges": [
-    { "max_dimension_m": 0.20, "scale": 2.0 },
+    { "max_dimension_m": 0.14, "scale": 3.0 },
+    { "max_dimension_m": 0.17, "scale": 2.0 },
     { "max_dimension_m": 0.40, "scale": 1.5 },
-    { "max_dimension_m": 0.80, "scale": 1.0 },
-    { "max_dimension_m": 1.50, "scale": 0.5 }
+    { "max_dimension_m": 1.00, "scale": 1.0 },
+    { "max_dimension_m": 1.25, "scale": 0.75 },
+    { "max_dimension_m": 1.40, "scale": 0.5 }
   ]
 }
 
@@ -69,8 +71,8 @@ equal to the measured item dimension wins.
 
 The range mapping is clamped at the upper end. An item larger than every
 configured max_dimension_m keeps using the final range's scale instead of
-jumping back to default_scale. In the example above, an item measuring 3.0 m
-uses scale 0.5 because the final range is 1.50 m -> 0.5.
+jumping back to default_scale. With the shipped default, an item measuring more
+than 1.40 m uses scale 0.5.
 
 The first range already covers every measured size up to its maximum, so there
 is no lower-end gap.

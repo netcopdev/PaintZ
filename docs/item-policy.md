@@ -17,8 +17,7 @@ An item family may be introduced by JSON when its runtime model exposes a safe p
   "default_action": "allow",
   "domains": [
     { "types": ["Weapon_Base", "Magazine_Base"] },
-    { "inventory_slot_patterns": ["weapon*", "pistol*", "suppressor*"] },
-    { "class_pattern": "SmallProtectorCase" }
+    { "inventory_slot_patterns": ["weapon*", "pistol*", "suppressor*"] }
   ],
   "rules": []
 }
@@ -103,11 +102,7 @@ Additional examples:
 { "types": ["ItemBase", "Inventory_Base"], "inventory_slot_pattern": "weaponOptics*" }
 ```
 
-```json
-{ "class_patterns": ["SmallProtectorCase", "MyMod_*Case"] }
-```
-
-Missing or empty domains select the historical weapon/magazine fallback for backward compatibility. The bundled default file is broader and explicitly includes common weapon/pistol/suppressor attachment slot families plus `SmallProtectorCase`.
+Missing or empty domains select the historical weapon/magazine fallback for backward compatibility. The bundled default file is broader and explicitly includes common weapon/pistol/suppressor attachment slot families.
 
 ## Rules
 

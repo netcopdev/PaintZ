@@ -4,8 +4,7 @@
   "default_action": "allow",
   "domains": [
     { "types": ["Weapon_Base", "Magazine_Base"] },
-    { "inventory_slot_patterns": ["weapon*", "pistol*", "suppressor*"] },
-    { "class_pattern": "SmallProtectorCase" }
+    { "inventory_slot_patterns": ["weapon*", "pistol*", "suppressor*"] }
   ],
   "rules": []
 }

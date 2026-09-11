@@ -105,7 +105,7 @@ The bundled default is:
 ```json
 {
   "version": 1,
-  "reload_seconds": 10,
+  "reload_seconds": 60,
   "prune_unknown": false,
   "migrations": {}
 }
