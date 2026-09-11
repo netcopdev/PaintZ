@@ -56,7 +56,7 @@ Examples include:
 - optics/scopes/sights;
 - weapon and pistol flashlights;
 - clothing, helmets and backpacks;
-- containers such as `SmallProtectorCase`;
+- containers whose models expose safe paintable selections;
 - tools and other ordinary inventory items.
 
 Adding one of these must **not** require:
@@ -416,7 +416,7 @@ Before considering work complete:
 4. run available static/generator tests;
 5. run DayZ Tools/server compilation when available;
 6. exercise singular-only, plural-only, and combined singular+plural selector forms;
-7. exercise slot selectors with at least a loose stock/handguard, an optic, a flashlight/suppressor family, and a non-slot explicit domain such as `SmallProtectorCase`;
+7. exercise slot selectors with at least a loose stock/handguard, an optic, a flashlight/suppressor family, and a verified non-slot ItemBase test class;
 8. verify an optic/light exposing only protected functional surfaces remains safely unsupported;
 9. perform live persistence/multiplayer acceptance for lifecycle changes;
 10. update all relevant documentation on the same branch whenever the change affects architecture, behavior, configuration, build/release workflow, persistence, API contracts, or documented project state.
