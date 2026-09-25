@@ -1,6 +1,6 @@
 # PaintZ Codex Instructions
 
-Before modifying, creating, deleting, renaming, generating, rebasing, or moving any repository work, you MUST read `docs/CODEX_PROJECT_RULES.md` completely and follow it together with this file.
+Before modifying, creating, deleting, renaming, generating, rebasing, or moving any repository work, you MUST read `docs/CODEX_PROJECT_RULES.md` and `docs/DEFERRED_WORK_TRACKING.md` completely and follow them together with this file.
 
 For any work involving paint packs, finish registration/identity, spray-can pack integration, PackKit output, namespace handling, or cross-repository interoperability, you MUST also read and follow `docs/PAINT_PACK_API.md`. That file is the authoritative interoperability contract for PaintZ, PaintZ-PackKit, and all PaintZ content packs.
 
@@ -34,6 +34,18 @@ When the implementation is complete, leave it on its work branch and report the 
 Do not infer merge permission from phrases such as "implement this", "fix this", "do it", "finish it", "make it work", or from successful tests. Only an explicit merge/integration approval authorizes integration.
 
 If branch intent or approval status is ambiguous, preserve separation: create/use a work branch and do not merge.
+
+## Deferred-work tracking is mandatory
+
+An unmerged branch containing potentially required project work must never be left as an untracked repository artifact.
+
+Before switching from such a branch to unrelated work, create or update an open PR or issue that records the branch/head commit, purpose, verification state, remaining blocker/test, next action, and intended disposition. A branch name alone is not sufficient tracking.
+
+A verified fix that has explicit integration approval must be integrated promptly or receive a newly recorded concrete blocker before unrelated release/cleanup work continues.
+
+Before any release, release-candidate declaration, "clean main" claim, broad cleanup, or old-branch deletion, perform the outstanding-work audit defined in `docs/DEFERRED_WORK_TRACKING.md`. Every relevant branch must be classified as integrated/equivalent, intentionally pending with a tracker, approved for integration, superseded, rejected/obsolete, or experimental.
+
+Do not describe `main` as clean/release-ready while a relevant proper fix exists only off-main without an explicit tracked reason.
 
 ## Documentation progression
 

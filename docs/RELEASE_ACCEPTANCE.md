@@ -2,6 +2,15 @@
 
 A release is accepted only when all mandatory checks pass.
 
+## Repository reconciliation
+
+- [ ] An outstanding-work audit has been performed according to `docs/DEFERRED_WORK_TRACKING.md`.
+- [ ] Every relevant branch with commits absent from `main` has an explicit disposition: integrated/equivalent, intentionally pending with an active tracker, approved for integration, superseded, rejected/obsolete, or experimental.
+- [ ] Every deferred fix/feature awaiting verification has an open PR or issue recording its branch/head SHA, verification state, blocker, next action, and integration criteria.
+- [ ] No verified and approved relevant fix remains only on another branch without a newly recorded blocker.
+- [ ] Open PRs/issues and release-acceptance requirements do not identify a known unresolved defect on `main` that is being ignored for release.
+- [ ] No branch is deleted or broad cleanup declared complete until relevant outstanding work has been reconciled.
+
 ## Build / runtime
 
 - [ ] Mod compiles against the target DayZ version with Community Framework loaded.
@@ -37,6 +46,17 @@ A release is accepted only when all mandatory checks pass.
 - [ ] A non-weapon/non-magazine `ItemBase` family can be enabled by JSON only and receives the same state/persistence behavior without script changes.
 - [ ] No per-class compatibility registry or painted subclasses exist.
 - [ ] Stale-finish migration/pruning uses the same shared `ItemBase` logical state and introduces no per-category persistence path.
+
+## Painted item presentation
+
+- [ ] A painted vanilla weapon shows ` [finish name]` after its normal display name and a `Finish: name (ID)` line in its tooltip/description.
+- [ ] A painted magazine and at least one non-weapon/non-magazine `ItemBase` target receive the same presentation through the shared path.
+- [ ] A weapon/subclass `NameOverride` that returns its own dynamic name without calling `super.NameOverride()` is still decorated by PaintZ through the final display-name accessor path.
+- [ ] A weapon/subclass `DescriptionOverride` that returns its own dynamic description without calling `super.DescriptionOverride()` is still decorated by PaintZ through the final tooltip accessor path.
+- [ ] Upstream dynamic names/descriptions remain intact before PaintZ adds finish information.
+- [ ] A client can resolve presentation from synchronized PaintZ state without relying on category-specific presentation patches.
+- [ ] Stripping removes only the PaintZ finish presentation and restores the normal upstream name/description behavior.
+- [ ] PaintZ does not add weapon/classname-specific presentation patches.
 
 ## Runtime policy
 
@@ -104,4 +124,4 @@ A release is accepted only when all mandatory checks pass.
 - [ ] Ruined cans and ruined targets cannot receive new paint.
 - [ ] Stale migration still requires a safe paintable selection and never guesses a protected/ambiguous surface.
 
-`tools/sandbox/PaintZ_FinishSmokeTest.c` and the Paint Pack API fixture remain opt-in smoke tests. Multiplayer UI/visual replication, stale migration/prune persistence, and persistence restart scenarios require live-server acceptance testing.
+`tools/sandbox/PaintZ_FinishSmokeTest.c` and the Paint Pack API fixture remain opt-in smoke tests. Multiplayer UI/visual replication, painted-item presentation interoperability, stale migration/prune persistence, and persistence restart scenarios require live-server acceptance testing.
